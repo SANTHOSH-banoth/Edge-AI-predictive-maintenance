@@ -1,0 +1,1202 @@
+[
+  {
+    "t": 0,
+    "air_temp_K": 299.52,
+    "process_temp_K": 310.98,
+    "rot_speed_rpm": 1514.0,
+    "torque_Nm": 65.61,
+    "tool_wear_min": 1.6,
+    "failure_probability": 0.3386,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 1,
+    "air_temp_K": 300.0,
+    "process_temp_K": 308.2,
+    "rot_speed_rpm": 1652.1,
+    "torque_Nm": 44.95,
+    "tool_wear_min": 3.1,
+    "failure_probability": 0.0066,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 2,
+    "air_temp_K": 299.76,
+    "process_temp_K": 309.37,
+    "rot_speed_rpm": 1495.2,
+    "torque_Nm": 40.42,
+    "tool_wear_min": 5.0,
+    "failure_probability": 0.0009,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 3,
+    "air_temp_K": 300.83,
+    "process_temp_K": 310.88,
+    "rot_speed_rpm": 1538.0,
+    "torque_Nm": 27.97,
+    "tool_wear_min": 7.0,
+    "failure_probability": 0.0021,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 4,
+    "air_temp_K": 300.11,
+    "process_temp_K": 308.86,
+    "rot_speed_rpm": 1616.2,
+    "torque_Nm": 50.11,
+    "tool_wear_min": 9.4,
+    "failure_probability": 0.0066,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 5,
+    "air_temp_K": 299.93,
+    "process_temp_K": 308.3,
+    "rot_speed_rpm": 1431.6,
+    "torque_Nm": 21.84,
+    "tool_wear_min": 11.4,
+    "failure_probability": 0.1395,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 6,
+    "air_temp_K": 300.72,
+    "process_temp_K": 311.2,
+    "rot_speed_rpm": 1599.8,
+    "torque_Nm": 26.02,
+    "tool_wear_min": 13.2,
+    "failure_probability": 0.0013,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 7,
+    "air_temp_K": 296.9,
+    "process_temp_K": 306.03,
+    "rot_speed_rpm": 1305.0,
+    "torque_Nm": 53.0,
+    "tool_wear_min": 15.0,
+    "failure_probability": 0.0085,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 8,
+    "air_temp_K": 299.04,
+    "process_temp_K": 310.56,
+    "rot_speed_rpm": 1411.5,
+    "torque_Nm": 54.08,
+    "tool_wear_min": 17.0,
+    "failure_probability": 0.0002,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 9,
+    "air_temp_K": 300.57,
+    "process_temp_K": 312.77,
+    "rot_speed_rpm": 1530.8,
+    "torque_Nm": 36.73,
+    "tool_wear_min": 18.9,
+    "failure_probability": 0.0,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 10,
+    "air_temp_K": 300.25,
+    "process_temp_K": 310.08,
+    "rot_speed_rpm": 1433.3,
+    "torque_Nm": 42.44,
+    "tool_wear_min": 20.9,
+    "failure_probability": 0.0004,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 11,
+    "air_temp_K": 297.85,
+    "process_temp_K": 308.12,
+    "rot_speed_rpm": 1471.3,
+    "torque_Nm": 51.47,
+    "tool_wear_min": 22.7,
+    "failure_probability": 0.002,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 12,
+    "air_temp_K": 299.41,
+    "process_temp_K": 308.27,
+    "rot_speed_rpm": 1749.1,
+    "torque_Nm": 39.33,
+    "tool_wear_min": 25.1,
+    "failure_probability": 0.0007,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 13,
+    "air_temp_K": 299.42,
+    "process_temp_K": 308.11,
+    "rot_speed_rpm": 1294.4,
+    "torque_Nm": 32.66,
+    "tool_wear_min": 27.0,
+    "failure_probability": 0.012,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 14,
+    "air_temp_K": 298.02,
+    "process_temp_K": 305.25,
+    "rot_speed_rpm": 1590.2,
+    "torque_Nm": 47.13,
+    "tool_wear_min": 28.7,
+    "failure_probability": 0.0908,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 15,
+    "air_temp_K": 302.25,
+    "process_temp_K": 311.64,
+    "rot_speed_rpm": 1534.4,
+    "torque_Nm": 48.21,
+    "tool_wear_min": 30.7,
+    "failure_probability": 0.0004,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 16,
+    "air_temp_K": 299.44,
+    "process_temp_K": 309.75,
+    "rot_speed_rpm": 1710.6,
+    "torque_Nm": 40.98,
+    "tool_wear_min": 33.0,
+    "failure_probability": 0.0002,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 17,
+    "air_temp_K": 300.62,
+    "process_temp_K": 309.14,
+    "rot_speed_rpm": 1447.1,
+    "torque_Nm": 36.98,
+    "tool_wear_min": 35.3,
+    "failure_probability": 0.0041,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 18,
+    "air_temp_K": 302.88,
+    "process_temp_K": 310.83,
+    "rot_speed_rpm": 1606.4,
+    "torque_Nm": 47.2,
+    "tool_wear_min": 37.6,
+    "failure_probability": 0.0022,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 19,
+    "air_temp_K": 299.98,
+    "process_temp_K": 309.42,
+    "rot_speed_rpm": 1366.7,
+    "torque_Nm": 41.88,
+    "tool_wear_min": 39.8,
+    "failure_probability": 0.0009,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 20,
+    "air_temp_K": 301.73,
+    "process_temp_K": 311.67,
+    "rot_speed_rpm": 1588.6,
+    "torque_Nm": 32.09,
+    "tool_wear_min": 41.9,
+    "failure_probability": 0.0003,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 21,
+    "air_temp_K": 300.59,
+    "process_temp_K": 308.37,
+    "rot_speed_rpm": 1553.5,
+    "torque_Nm": 37.57,
+    "tool_wear_min": 43.5,
+    "failure_probability": 0.0103,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 22,
+    "air_temp_K": 300.05,
+    "process_temp_K": 308.89,
+    "rot_speed_rpm": 1344.4,
+    "torque_Nm": 38.02,
+    "tool_wear_min": 45.9,
+    "failure_probability": 0.0031,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 23,
+    "air_temp_K": 302.58,
+    "process_temp_K": 311.46,
+    "rot_speed_rpm": 1423.6,
+    "torque_Nm": 45.56,
+    "tool_wear_min": 48.2,
+    "failure_probability": 0.0004,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 24,
+    "air_temp_K": 300.33,
+    "process_temp_K": 311.36,
+    "rot_speed_rpm": 1613.5,
+    "torque_Nm": 37.48,
+    "tool_wear_min": 50.4,
+    "failure_probability": 0.0,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 25,
+    "air_temp_K": 300.03,
+    "process_temp_K": 308.89,
+    "rot_speed_rpm": 1360.7,
+    "torque_Nm": 58.93,
+    "tool_wear_min": 51.9,
+    "failure_probability": 0.0066,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 26,
+    "air_temp_K": 301.39,
+    "process_temp_K": 308.64,
+    "rot_speed_rpm": 1723.6,
+    "torque_Nm": 41.13,
+    "tool_wear_min": 53.6,
+    "failure_probability": 0.0044,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 27,
+    "air_temp_K": 301.45,
+    "process_temp_K": 311.12,
+    "rot_speed_rpm": 1362.6,
+    "torque_Nm": 40.07,
+    "tool_wear_min": 55.9,
+    "failure_probability": 0.0002,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 28,
+    "air_temp_K": 299.7,
+    "process_temp_K": 308.25,
+    "rot_speed_rpm": 1253.6,
+    "torque_Nm": 40.55,
+    "tool_wear_min": 58.4,
+    "failure_probability": 0.0131,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 29,
+    "air_temp_K": 297.07,
+    "process_temp_K": 306.81,
+    "rot_speed_rpm": 1343.3,
+    "torque_Nm": 48.19,
+    "tool_wear_min": 60.4,
+    "failure_probability": 0.0014,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 30,
+    "air_temp_K": 298.11,
+    "process_temp_K": 305.47,
+    "rot_speed_rpm": 1242.3,
+    "torque_Nm": 37.9,
+    "tool_wear_min": 62.1,
+    "failure_probability": 0.831,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 31,
+    "air_temp_K": 300.02,
+    "process_temp_K": 306.99,
+    "rot_speed_rpm": 1428.2,
+    "torque_Nm": 50.35,
+    "tool_wear_min": 64.0,
+    "failure_probability": 0.4417,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 32,
+    "air_temp_K": 302.21,
+    "process_temp_K": 312.11,
+    "rot_speed_rpm": 1482.9,
+    "torque_Nm": 49.38,
+    "tool_wear_min": 66.2,
+    "failure_probability": 0.0001,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 33,
+    "air_temp_K": 301.81,
+    "process_temp_K": 312.23,
+    "rot_speed_rpm": 1298.9,
+    "torque_Nm": 47.99,
+    "tool_wear_min": 68.0,
+    "failure_probability": 0.0,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 34,
+    "air_temp_K": 299.86,
+    "process_temp_K": 309.73,
+    "rot_speed_rpm": 1373.0,
+    "torque_Nm": 45.19,
+    "tool_wear_min": 70.4,
+    "failure_probability": 0.0001,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 35,
+    "air_temp_K": 300.71,
+    "process_temp_K": 311.28,
+    "rot_speed_rpm": 1335.5,
+    "torque_Nm": 49.89,
+    "tool_wear_min": 72.9,
+    "failure_probability": 0.0,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 36,
+    "air_temp_K": 300.83,
+    "process_temp_K": 308.03,
+    "rot_speed_rpm": 1047.5,
+    "torque_Nm": 29.29,
+    "tool_wear_min": 74.7,
+    "failure_probability": 0.9877,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 37,
+    "air_temp_K": 301.44,
+    "process_temp_K": 311.25,
+    "rot_speed_rpm": 1222.4,
+    "torque_Nm": 50.97,
+    "tool_wear_min": 76.3,
+    "failure_probability": 0.0,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 38,
+    "air_temp_K": 300.39,
+    "process_temp_K": 309.07,
+    "rot_speed_rpm": 1160.3,
+    "torque_Nm": 50.87,
+    "tool_wear_min": 78.6,
+    "failure_probability": 0.0043,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 39,
+    "air_temp_K": 297.95,
+    "process_temp_K": 307.94,
+    "rot_speed_rpm": 1405.8,
+    "torque_Nm": 55.83,
+    "tool_wear_min": 80.6,
+    "failure_probability": 0.0011,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 40,
+    "air_temp_K": 297.96,
+    "process_temp_K": 308.36,
+    "rot_speed_rpm": 1497.6,
+    "torque_Nm": 60.53,
+    "tool_wear_min": 83.0,
+    "failure_probability": 0.0222,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 41,
+    "air_temp_K": 297.13,
+    "process_temp_K": 306.96,
+    "rot_speed_rpm": 1615.2,
+    "torque_Nm": 46.55,
+    "tool_wear_min": 85.0,
+    "failure_probability": 0.0007,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 42,
+    "air_temp_K": 298.84,
+    "process_temp_K": 309.67,
+    "rot_speed_rpm": 1604.3,
+    "torque_Nm": 42.09,
+    "tool_wear_min": 87.1,
+    "failure_probability": 0.0001,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 43,
+    "air_temp_K": 300.45,
+    "process_temp_K": 310.48,
+    "rot_speed_rpm": 1367.0,
+    "torque_Nm": 43.69,
+    "tool_wear_min": 88.9,
+    "failure_probability": 0.0,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 44,
+    "air_temp_K": 299.87,
+    "process_temp_K": 309.34,
+    "rot_speed_rpm": 1356.3,
+    "torque_Nm": 37.31,
+    "tool_wear_min": 90.7,
+    "failure_probability": 0.0005,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 45,
+    "air_temp_K": 300.71,
+    "process_temp_K": 308.8,
+    "rot_speed_rpm": 1337.1,
+    "torque_Nm": 46.01,
+    "tool_wear_min": 93.0,
+    "failure_probability": 0.0179,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 46,
+    "air_temp_K": 302.0,
+    "process_temp_K": 309.72,
+    "rot_speed_rpm": 1279.9,
+    "torque_Nm": 46.27,
+    "tool_wear_min": 95.5,
+    "failure_probability": 0.0334,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 47,
+    "air_temp_K": 299.67,
+    "process_temp_K": 308.18,
+    "rot_speed_rpm": 1252.6,
+    "torque_Nm": 46.1,
+    "tool_wear_min": 97.1,
+    "failure_probability": 0.0108,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 48,
+    "air_temp_K": 299.71,
+    "process_temp_K": 308.49,
+    "rot_speed_rpm": 1586.0,
+    "torque_Nm": 23.29,
+    "tool_wear_min": 98.8,
+    "failure_probability": 0.0012,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 49,
+    "air_temp_K": 300.59,
+    "process_temp_K": 311.02,
+    "rot_speed_rpm": 1648.0,
+    "torque_Nm": 42.64,
+    "tool_wear_min": 101.2,
+    "failure_probability": 0.0001,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 50,
+    "air_temp_K": 300.58,
+    "process_temp_K": 310.28,
+    "rot_speed_rpm": 1384.1,
+    "torque_Nm": 40.39,
+    "tool_wear_min": 103.6,
+    "failure_probability": 0.0001,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 51,
+    "air_temp_K": 301.91,
+    "process_temp_K": 310.67,
+    "rot_speed_rpm": 1571.7,
+    "torque_Nm": 34.5,
+    "tool_wear_min": 105.5,
+    "failure_probability": 0.0011,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 52,
+    "air_temp_K": 299.01,
+    "process_temp_K": 308.57,
+    "rot_speed_rpm": 1258.0,
+    "torque_Nm": 45.93,
+    "tool_wear_min": 107.4,
+    "failure_probability": 0.0002,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 53,
+    "air_temp_K": 299.72,
+    "process_temp_K": 309.03,
+    "rot_speed_rpm": 1444.9,
+    "torque_Nm": 56.59,
+    "tool_wear_min": 109.1,
+    "failure_probability": 0.0007,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 54,
+    "air_temp_K": 298.59,
+    "process_temp_K": 307.95,
+    "rot_speed_rpm": 1504.9,
+    "torque_Nm": 45.37,
+    "tool_wear_min": 110.7,
+    "failure_probability": 0.0006,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 55,
+    "air_temp_K": 301.87,
+    "process_temp_K": 311.68,
+    "rot_speed_rpm": 1101.7,
+    "torque_Nm": 50.76,
+    "tool_wear_min": 112.7,
+    "failure_probability": 0.0,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 56,
+    "air_temp_K": 300.02,
+    "process_temp_K": 307.91,
+    "rot_speed_rpm": 1555.5,
+    "torque_Nm": 55.64,
+    "tool_wear_min": 114.9,
+    "failure_probability": 0.0115,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 57,
+    "air_temp_K": 299.25,
+    "process_temp_K": 308.76,
+    "rot_speed_rpm": 1426.3,
+    "torque_Nm": 61.58,
+    "tool_wear_min": 116.5,
+    "failure_probability": 0.0049,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 58,
+    "air_temp_K": 301.21,
+    "process_temp_K": 310.67,
+    "rot_speed_rpm": 1268.3,
+    "torque_Nm": 39.14,
+    "tool_wear_min": 118.2,
+    "failure_probability": 0.0001,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 59,
+    "air_temp_K": 296.54,
+    "process_temp_K": 306.41,
+    "rot_speed_rpm": 1315.0,
+    "torque_Nm": 25.18,
+    "tool_wear_min": 119.8,
+    "failure_probability": 0.0023,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 60,
+    "air_temp_K": 299.99,
+    "process_temp_K": 308.24,
+    "rot_speed_rpm": 1351.7,
+    "torque_Nm": 29.43,
+    "tool_wear_min": 121.6,
+    "failure_probability": 0.0357,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 61,
+    "air_temp_K": 300.71,
+    "process_temp_K": 307.52,
+    "rot_speed_rpm": 1168.0,
+    "torque_Nm": 56.96,
+    "tool_wear_min": 124.0,
+    "failure_probability": 0.8207,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 62,
+    "air_temp_K": 299.91,
+    "process_temp_K": 308.64,
+    "rot_speed_rpm": 1574.9,
+    "torque_Nm": 53.01,
+    "tool_wear_min": 126.0,
+    "failure_probability": 0.0016,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 63,
+    "air_temp_K": 302.76,
+    "process_temp_K": 311.19,
+    "rot_speed_rpm": 1743.7,
+    "torque_Nm": 41.47,
+    "tool_wear_min": 127.9,
+    "failure_probability": 0.0002,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 64,
+    "air_temp_K": 300.11,
+    "process_temp_K": 309.71,
+    "rot_speed_rpm": 1347.7,
+    "torque_Nm": 31.53,
+    "tool_wear_min": 129.6,
+    "failure_probability": 0.0005,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 65,
+    "air_temp_K": 299.89,
+    "process_temp_K": 310.42,
+    "rot_speed_rpm": 1177.1,
+    "torque_Nm": 32.09,
+    "tool_wear_min": 132.0,
+    "failure_probability": 0.0001,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 66,
+    "air_temp_K": 299.41,
+    "process_temp_K": 308.55,
+    "rot_speed_rpm": 1588.3,
+    "torque_Nm": 27.75,
+    "tool_wear_min": 134.5,
+    "failure_probability": 0.0005,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 67,
+    "air_temp_K": 298.7,
+    "process_temp_K": 306.07,
+    "rot_speed_rpm": 1973.2,
+    "torque_Nm": 41.79,
+    "tool_wear_min": 136.8,
+    "failure_probability": 0.0002,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 68,
+    "air_temp_K": 300.44,
+    "process_temp_K": 307.51,
+    "rot_speed_rpm": 1372.2,
+    "torque_Nm": 52.82,
+    "tool_wear_min": 139.0,
+    "failure_probability": 0.4215,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 69,
+    "air_temp_K": 300.89,
+    "process_temp_K": 309.08,
+    "rot_speed_rpm": 1092.0,
+    "torque_Nm": 61.36,
+    "tool_wear_min": 140.8,
+    "failure_probability": 0.02,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 70,
+    "air_temp_K": 299.39,
+    "process_temp_K": 306.72,
+    "rot_speed_rpm": 1165.4,
+    "torque_Nm": 42.55,
+    "tool_wear_min": 142.7,
+    "failure_probability": 0.8485,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 71,
+    "air_temp_K": 300.59,
+    "process_temp_K": 306.52,
+    "rot_speed_rpm": 1391.7,
+    "torque_Nm": 47.39,
+    "tool_wear_min": 144.7,
+    "failure_probability": 0.8645,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 72,
+    "air_temp_K": 298.17,
+    "process_temp_K": 308.89,
+    "rot_speed_rpm": 1256.5,
+    "torque_Nm": 35.36,
+    "tool_wear_min": 146.6,
+    "failure_probability": 0.0,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 73,
+    "air_temp_K": 300.63,
+    "process_temp_K": 310.05,
+    "rot_speed_rpm": 1738.4,
+    "torque_Nm": 40.99,
+    "tool_wear_min": 148.3,
+    "failure_probability": 0.0001,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 74,
+    "air_temp_K": 296.63,
+    "process_temp_K": 305.5,
+    "rot_speed_rpm": 1475.5,
+    "torque_Nm": 49.16,
+    "tool_wear_min": 150.4,
+    "failure_probability": 0.005,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 75,
+    "air_temp_K": 299.88,
+    "process_temp_K": 308.12,
+    "rot_speed_rpm": 946.4,
+    "torque_Nm": 50.2,
+    "tool_wear_min": 152.6,
+    "failure_probability": 0.149,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 76,
+    "air_temp_K": 298.94,
+    "process_temp_K": 306.76,
+    "rot_speed_rpm": 1546.6,
+    "torque_Nm": 42.49,
+    "tool_wear_min": 154.2,
+    "failure_probability": 0.0089,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 77,
+    "air_temp_K": 299.27,
+    "process_temp_K": 307.72,
+    "rot_speed_rpm": 1271.9,
+    "torque_Nm": 40.81,
+    "tool_wear_min": 156.4,
+    "failure_probability": 0.0059,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 78,
+    "air_temp_K": 297.09,
+    "process_temp_K": 306.84,
+    "rot_speed_rpm": 1050.5,
+    "torque_Nm": 46.87,
+    "tool_wear_min": 158.9,
+    "failure_probability": 0.0003,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 79,
+    "air_temp_K": 300.18,
+    "process_temp_K": 311.16,
+    "rot_speed_rpm": 1397.8,
+    "torque_Nm": 36.44,
+    "tool_wear_min": 161.0,
+    "failure_probability": 0.0,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 80,
+    "air_temp_K": 300.35,
+    "process_temp_K": 308.22,
+    "rot_speed_rpm": 822.4,
+    "torque_Nm": 27.95,
+    "tool_wear_min": 163.1,
+    "failure_probability": 0.9817,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 81,
+    "air_temp_K": 299.54,
+    "process_temp_K": 305.93,
+    "rot_speed_rpm": 769.9,
+    "torque_Nm": 32.86,
+    "tool_wear_min": 165.5,
+    "failure_probability": 0.9999,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 82,
+    "air_temp_K": 298.38,
+    "process_temp_K": 304.01,
+    "rot_speed_rpm": 1539.2,
+    "torque_Nm": 51.79,
+    "tool_wear_min": 167.0,
+    "failure_probability": 0.9625,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 83,
+    "air_temp_K": 298.67,
+    "process_temp_K": 306.11,
+    "rot_speed_rpm": 1066.2,
+    "torque_Nm": 61.52,
+    "tool_wear_min": 169.4,
+    "failure_probability": 0.9494,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 84,
+    "air_temp_K": 303.38,
+    "process_temp_K": 312.48,
+    "rot_speed_rpm": 1507.4,
+    "torque_Nm": 52.98,
+    "tool_wear_min": 170.9,
+    "failure_probability": 0.0005,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 85,
+    "air_temp_K": 297.85,
+    "process_temp_K": 306.47,
+    "rot_speed_rpm": 1422.5,
+    "torque_Nm": 31.95,
+    "tool_wear_min": 172.9,
+    "failure_probability": 0.0022,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 86,
+    "air_temp_K": 299.87,
+    "process_temp_K": 307.2,
+    "rot_speed_rpm": 1217.8,
+    "torque_Nm": 61.69,
+    "tool_wear_min": 174.6,
+    "failure_probability": 0.7858,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 87,
+    "air_temp_K": 301.49,
+    "process_temp_K": 311.58,
+    "rot_speed_rpm": 1218.6,
+    "torque_Nm": 33.08,
+    "tool_wear_min": 177.0,
+    "failure_probability": 0.0001,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 88,
+    "air_temp_K": 298.46,
+    "process_temp_K": 305.96,
+    "rot_speed_rpm": 1376.9,
+    "torque_Nm": 45.99,
+    "tool_wear_min": 179.4,
+    "failure_probability": 0.4592,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 89,
+    "air_temp_K": 299.0,
+    "process_temp_K": 304.37,
+    "rot_speed_rpm": 1450.5,
+    "torque_Nm": 42.5,
+    "tool_wear_min": 181.4,
+    "failure_probability": 0.9867,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 90,
+    "air_temp_K": 299.99,
+    "process_temp_K": 305.55,
+    "rot_speed_rpm": 1246.7,
+    "torque_Nm": 40.2,
+    "tool_wear_min": 183.3,
+    "failure_probability": 0.9986,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 91,
+    "air_temp_K": 298.92,
+    "process_temp_K": 308.25,
+    "rot_speed_rpm": 1363.3,
+    "torque_Nm": 57.56,
+    "tool_wear_min": 184.9,
+    "failure_probability": 0.0019,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 92,
+    "air_temp_K": 301.55,
+    "process_temp_K": 310.86,
+    "rot_speed_rpm": 1477.5,
+    "torque_Nm": 55.67,
+    "tool_wear_min": 186.6,
+    "failure_probability": 0.0011,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 93,
+    "air_temp_K": 303.27,
+    "process_temp_K": 309.47,
+    "rot_speed_rpm": 1497.1,
+    "torque_Nm": 47.28,
+    "tool_wear_min": 188.4,
+    "failure_probability": 0.0472,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 94,
+    "air_temp_K": 299.76,
+    "process_temp_K": 309.43,
+    "rot_speed_rpm": 1085.4,
+    "torque_Nm": 52.78,
+    "tool_wear_min": 190.6,
+    "failure_probability": 0.0025,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 95,
+    "air_temp_K": 299.84,
+    "process_temp_K": 306.17,
+    "rot_speed_rpm": 1244.5,
+    "torque_Nm": 60.03,
+    "tool_wear_min": 192.4,
+    "failure_probability": 0.9962,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 96,
+    "air_temp_K": 301.87,
+    "process_temp_K": 309.58,
+    "rot_speed_rpm": 904.2,
+    "torque_Nm": 53.23,
+    "tool_wear_min": 194.4,
+    "failure_probability": 0.8105,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 97,
+    "air_temp_K": 301.09,
+    "process_temp_K": 310.61,
+    "rot_speed_rpm": 1399.5,
+    "torque_Nm": 42.06,
+    "tool_wear_min": 196.1,
+    "failure_probability": 0.0008,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 98,
+    "air_temp_K": 301.34,
+    "process_temp_K": 311.89,
+    "rot_speed_rpm": 1407.1,
+    "torque_Nm": 57.93,
+    "tool_wear_min": 198.4,
+    "failure_probability": 0.0086,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 99,
+    "air_temp_K": 298.23,
+    "process_temp_K": 307.25,
+    "rot_speed_rpm": 1631.6,
+    "torque_Nm": 38.09,
+    "tool_wear_min": 200.0,
+    "failure_probability": 0.0065,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 100,
+    "air_temp_K": 302.03,
+    "process_temp_K": 311.37,
+    "rot_speed_rpm": 1503.9,
+    "torque_Nm": 57.01,
+    "tool_wear_min": 201.7,
+    "failure_probability": 0.0183,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 101,
+    "air_temp_K": 299.35,
+    "process_temp_K": 305.64,
+    "rot_speed_rpm": 1250.1,
+    "torque_Nm": 50.91,
+    "tool_wear_min": 203.6,
+    "failure_probability": 0.9984,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 102,
+    "air_temp_K": 298.81,
+    "process_temp_K": 303.99,
+    "rot_speed_rpm": 1463.0,
+    "torque_Nm": 66.65,
+    "tool_wear_min": 205.8,
+    "failure_probability": 0.9998,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 103,
+    "air_temp_K": 301.71,
+    "process_temp_K": 308.83,
+    "rot_speed_rpm": 1089.9,
+    "torque_Nm": 56.15,
+    "tool_wear_min": 207.6,
+    "failure_probability": 0.9497,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 104,
+    "air_temp_K": 299.76,
+    "process_temp_K": 305.78,
+    "rot_speed_rpm": 1032.4,
+    "torque_Nm": 58.49,
+    "tool_wear_min": 209.9,
+    "failure_probability": 0.9999,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 105,
+    "air_temp_K": 298.72,
+    "process_temp_K": 307.03,
+    "rot_speed_rpm": 1083.0,
+    "torque_Nm": 56.8,
+    "tool_wear_min": 212.2,
+    "failure_probability": 0.7252,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 106,
+    "air_temp_K": 300.21,
+    "process_temp_K": 307.78,
+    "rot_speed_rpm": 1293.0,
+    "torque_Nm": 43.67,
+    "tool_wear_min": 214.3,
+    "failure_probability": 0.5554,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 107,
+    "air_temp_K": 298.08,
+    "process_temp_K": 301.92,
+    "rot_speed_rpm": 1720.3,
+    "torque_Nm": 50.27,
+    "tool_wear_min": 216.2,
+    "failure_probability": 0.9965,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 108,
+    "air_temp_K": 298.31,
+    "process_temp_K": 302.56,
+    "rot_speed_rpm": 1449.4,
+    "torque_Nm": 40.79,
+    "tool_wear_min": 218.0,
+    "failure_probability": 0.9998,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 109,
+    "air_temp_K": 298.88,
+    "process_temp_K": 304.66,
+    "rot_speed_rpm": 1432.3,
+    "torque_Nm": 71.82,
+    "tool_wear_min": 219.9,
+    "failure_probability": 0.9999,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 110,
+    "air_temp_K": 298.02,
+    "process_temp_K": 308.39,
+    "rot_speed_rpm": 1517.7,
+    "torque_Nm": 63.85,
+    "tool_wear_min": 221.4,
+    "failure_probability": 0.9767,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 111,
+    "air_temp_K": 300.79,
+    "process_temp_K": 308.51,
+    "rot_speed_rpm": 1149.8,
+    "torque_Nm": 37.97,
+    "tool_wear_min": 223.8,
+    "failure_probability": 0.9073,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 112,
+    "air_temp_K": 300.8,
+    "process_temp_K": 313.72,
+    "rot_speed_rpm": 1263.8,
+    "torque_Nm": 69.19,
+    "tool_wear_min": 225.4,
+    "failure_probability": 0.9274,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 113,
+    "air_temp_K": 299.24,
+    "process_temp_K": 306.16,
+    "rot_speed_rpm": 1571.9,
+    "torque_Nm": 35.77,
+    "tool_wear_min": 227.0,
+    "failure_probability": 0.3766,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 114,
+    "air_temp_K": 300.03,
+    "process_temp_K": 307.7,
+    "rot_speed_rpm": 1551.7,
+    "torque_Nm": 47.69,
+    "tool_wear_min": 228.6,
+    "failure_probability": 0.4715,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 115,
+    "air_temp_K": 300.67,
+    "process_temp_K": 307.44,
+    "rot_speed_rpm": 1537.5,
+    "torque_Nm": 42.95,
+    "tool_wear_min": 230.2,
+    "failure_probability": 0.3732,
+    "prediction": "HEALTHY"
+  },
+  {
+    "t": 116,
+    "air_temp_K": 303.12,
+    "process_temp_K": 311.07,
+    "rot_speed_rpm": 1209.5,
+    "torque_Nm": 40.67,
+    "tool_wear_min": 231.8,
+    "failure_probability": 0.5684,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 117,
+    "air_temp_K": 298.32,
+    "process_temp_K": 305.97,
+    "rot_speed_rpm": 1597.8,
+    "torque_Nm": 46.05,
+    "tool_wear_min": 233.9,
+    "failure_probability": 0.782,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 118,
+    "air_temp_K": 301.99,
+    "process_temp_K": 303.41,
+    "rot_speed_rpm": 1713.1,
+    "torque_Nm": 63.74,
+    "tool_wear_min": 235.6,
+    "failure_probability": 1.0,
+    "prediction": "FAILURE RISK"
+  },
+  {
+    "t": 119,
+    "air_temp_K": 301.4,
+    "process_temp_K": 309.64,
+    "rot_speed_rpm": 1274.4,
+    "torque_Nm": 64.52,
+    "tool_wear_min": 237.9,
+    "failure_probability": 0.9976,
+    "prediction": "FAILURE RISK"
+  }
+]
