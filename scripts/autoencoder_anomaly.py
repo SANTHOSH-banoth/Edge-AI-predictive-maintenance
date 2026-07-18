@@ -1,0 +1,249 @@
+"""
+src/models/autoencoder_anomaly.py
+
+Unsupervised anomaly detection for CMAPSS turbofan sensors via a
+reconstruction-error autoencoder.
+
+Key idea: train ONLY on "healthy" windows (early-life engine data, far from
+failure), then measure reconstruction error on all data. Windows the model
+struggles to reconstruct are flagged as anomalous — this can catch failure
+modes a supervised RUL/classifier model never saw labeled examples of.
+
+"Healthy" windows are defined here as windows whose true RUL (from the
+sequence label) is above a threshold (default: top 70% of the RUL range,
+i.e. we exclude the last ~30% of each engine's life, which is where
+degradation dominates the signal).
+
+Usage:
+    python src/models/autoencoder_anomaly.py
+"""
+
+import os
+import numpy as np
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+SEQ_DIR = os.path.join("data", "cmapss", "sequences")
+MODEL_OUT_DIR = os.path.join("models")
+MODEL_OUT_PATH = os.path.join(MODEL_OUT_DIR, "autoencoder_anomaly.pt")
+
+# A window is "healthy" if its RUL label is at or above this percentile of
+# the training RUL distribution (i.e. plenty of life left / early in engine life).
+HEALTHY_RUL_PERCENTILE = 70
+
+LATENT_DIM = 16
+HIDDEN_DIM = 64
+DROPOUT = 0.1
+BATCH_SIZE = 64
+NUM_EPOCHS = 100
+LEARNING_RATE = 1e-3
+EARLY_STOP_PATIENCE = 10
+VAL_SPLIT = 0.15
+SEED = 42
+
+# Flag a window as anomalous if its reconstruction error exceeds this
+# percentile of the error distribution on held-out HEALTHY validation data.
+ANOMALY_PERCENTILE = 95
+
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+# ---------------------------------------------------------------------------
+# Data loading
+# ---------------------------------------------------------------------------
+def load_sequences(seq_dir=SEQ_DIR):
+    print("Loading sequence arrays...")
+    X_train = np.load(os.path.join(seq_dir, "X_train.npy"))
+    y_train = np.load(os.path.join(seq_dir, "y_train.npy"))
+    X_test = np.load(os.path.join(seq_dir, "X_test.npy"))
+    y_test = np.load(os.path.join(seq_dir, "y_test.npy"))
+    print(f"X_train: {X_train.shape}, y_train: {y_train.shape}")
+    print(f"X_test:  {X_test.shape}, y_test:  {y_test.shape}")
+    return X_train, y_train, X_test, y_test
+
+
+def split_healthy_vs_all(X_train, y_train, healthy_percentile=HEALTHY_RUL_PERCENTILE):
+    """Split training windows into 'healthy' (high RUL) vs the rest."""
+    threshold = np.percentile(y_train, healthy_percentile)
+    healthy_mask = y_train >= threshold
+    print(f"Healthy RUL threshold (>= {healthy_percentile}th pct): {threshold:.1f}")
+    print(f"Healthy windows: {healthy_mask.sum()} / {len(y_train)}")
+    return X_train[healthy_mask], X_train[~healthy_mask], threshold
+
+
+def make_train_val_loaders(X_healthy, val_split=VAL_SPLIT, batch_size=BATCH_SIZE, seed=SEED):
+    n = X_healthy.shape[0]
+    rng = np.random.default_rng(seed)
+    idx = rng.permutation(n)
+    n_val = int(n * val_split)
+    val_idx, train_idx = idx[:n_val], idx[n_val:]
+
+    X_tr = torch.tensor(X_healthy[train_idx], dtype=torch.float32)
+    X_val = torch.tensor(X_healthy[val_idx], dtype=torch.float32)
+
+    # Autoencoder: input IS the target, so dataset just needs X twice.
+    train_loader = DataLoader(TensorDataset(X_tr, X_tr), batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(TensorDataset(X_val, X_val), batch_size=batch_size, shuffle=False)
+    return train_loader, val_loader
+
+
+# ---------------------------------------------------------------------------
+# Model
+# ---------------------------------------------------------------------------
+class LSTMAutoencoder(nn.Module):
+    """
+    Sequence-to-sequence LSTM autoencoder.
+    Encoder LSTM compresses the window into a latent vector; decoder LSTM
+    reconstructs the full window from that latent vector, repeated across
+    time steps. Reconstruction error (MSE) per window is the anomaly score.
+    """
+
+    def __init__(self, n_features, seq_len, hidden_dim=HIDDEN_DIM, latent_dim=LATENT_DIM, dropout=DROPOUT):
+        super().__init__()
+        self.seq_len = seq_len
+
+        self.encoder_lstm = nn.LSTM(n_features, hidden_dim, batch_first=True, dropout=0.0)
+        self.encoder_fc = nn.Linear(hidden_dim, latent_dim)
+        self.encoder_dropout = nn.Dropout(dropout)
+
+        self.decoder_fc = nn.Linear(latent_dim, hidden_dim)
+        self.decoder_lstm = nn.LSTM(hidden_dim, hidden_dim, batch_first=True, dropout=0.0)
+        self.output_layer = nn.Linear(hidden_dim, n_features)
+
+    def forward(self, x):
+        # x: (batch, seq_len, n_features)
+        _, (h_n, _) = self.encoder_lstm(x)
+        latent = self.encoder_dropout(self.encoder_fc(h_n[-1]))   # (batch, latent_dim)
+
+        dec_input = self.decoder_fc(latent).unsqueeze(1).repeat(1, self.seq_len, 1)  # (batch, seq_len, hidden_dim)
+        dec_out, _ = self.decoder_lstm(dec_input)
+        recon = self.output_layer(dec_out)  # (batch, seq_len, n_features)
+        return recon
+
+
+def reconstruction_error(model, X, batch_size=256):
+    """Per-window MSE reconstruction error, returned as a 1D numpy array."""
+    model.eval()
+    errors = []
+    with torch.no_grad():
+        for i in range(0, len(X), batch_size):
+            xb = torch.tensor(X[i:i + batch_size], dtype=torch.float32).to(DEVICE)
+            recon = model(xb)
+            err = ((recon - xb) ** 2).mean(dim=(1, 2))  # per-window MSE
+            errors.append(err.cpu().numpy())
+    return np.concatenate(errors)
+
+
+# ---------------------------------------------------------------------------
+# Training loop
+# ---------------------------------------------------------------------------
+def train_model(model, train_loader, val_loader, num_epochs=NUM_EPOCHS,
+                 lr=LEARNING_RATE, patience=EARLY_STOP_PATIENCE):
+    model.to(DEVICE)
+    criterion = nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=3)
+
+    best_val_loss = float("inf")
+    best_state = None
+    epochs_no_improve = 0
+
+    for epoch in range(1, num_epochs + 1):
+        model.train()
+        train_losses = []
+        for xb, target in train_loader:
+            xb, target = xb.to(DEVICE), target.to(DEVICE)
+            optimizer.zero_grad()
+            recon = model(xb)
+            loss = criterion(recon, target)
+            loss.backward()
+            optimizer.step()
+            train_losses.append(loss.item())
+
+        model.eval()
+        val_losses = []
+        with torch.no_grad():
+            for xb, target in val_loader:
+                xb, target = xb.to(DEVICE), target.to(DEVICE)
+                val_losses.append(criterion(model(xb), target).item())
+
+        train_loss = np.mean(train_losses)
+        val_loss = np.mean(val_losses)
+        scheduler.step(val_loss)
+
+        print(f"Epoch {epoch:3d}/{num_epochs} | train_recon_MSE={train_loss:.5f} | val_recon_MSE={val_loss:.5f}")
+
+        if val_loss < best_val_loss - 1e-6:
+            best_val_loss = val_loss
+            best_state = {k: v.clone() for k, v in model.state_dict().items()}
+            epochs_no_improve = 0
+        else:
+            epochs_no_improve += 1
+            if epochs_no_improve >= patience:
+                print(f"Early stopping at epoch {epoch} (no val improvement for {patience} epochs).")
+                break
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
+    return model
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+def main():
+    torch.manual_seed(SEED)
+    np.random.seed(SEED)
+
+    X_train, y_train, X_test, y_test = load_sequences()
+    n_features = X_train.shape[2]
+    seq_len = X_train.shape[1]
+
+    X_healthy, X_degraded, threshold = split_healthy_vs_all(X_train, y_train)
+    train_loader, val_loader = make_train_val_loaders(X_healthy)
+
+    model = LSTMAutoencoder(n_features=n_features, seq_len=seq_len)
+    print(f"\nModel: {model}\n")
+    print(f"Training on device: {DEVICE}\n")
+
+    model = train_model(model, train_loader, val_loader)
+
+    # Establish anomaly threshold from held-out HEALTHY windows only.
+    healthy_val_errors = reconstruction_error(model, X_healthy)
+    anomaly_threshold = np.percentile(healthy_val_errors, ANOMALY_PERCENTILE)
+    print(f"\nAnomaly score threshold ({ANOMALY_PERCENTILE}th pct of healthy errors): {anomaly_threshold:.5f}")
+
+    # Sanity check: degraded (near-failure) windows should show higher error
+    # and a higher flagged-anomaly rate than healthy windows.
+    degraded_errors = reconstruction_error(model, X_degraded)
+    test_errors = reconstruction_error(model, X_test)
+
+    healthy_flag_rate = (healthy_val_errors > anomaly_threshold).mean()
+    degraded_flag_rate = (degraded_errors > anomaly_threshold).mean()
+    test_flag_rate = (test_errors > anomaly_threshold).mean()
+
+    print("\n=== Anomaly Detection Sanity Check ===")
+    print(f"Healthy windows  flagged anomalous: {healthy_flag_rate:.1%}  (expect ~{100 - ANOMALY_PERCENTILE}%)")
+    print(f"Degraded windows flagged anomalous: {degraded_flag_rate:.1%}  (expect notably higher)")
+    print(f"Test windows     flagged anomalous: {test_flag_rate:.1%}")
+
+    os.makedirs(MODEL_OUT_DIR, exist_ok=True)
+    torch.save({
+        "model_state_dict": model.state_dict(),
+        "n_features": n_features,
+        "seq_len": seq_len,
+        "hidden_dim": HIDDEN_DIM,
+        "latent_dim": LATENT_DIM,
+        "dropout": DROPOUT,
+        "healthy_rul_threshold": float(threshold),
+        "anomaly_error_threshold": float(anomaly_threshold),
+    }, MODEL_OUT_PATH)
+    print(f"\nModel + thresholds saved to {MODEL_OUT_PATH}")
+
+
+if __name__ == "__main__":
+    main()
