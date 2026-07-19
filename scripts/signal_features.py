@@ -55,21 +55,39 @@ Features added, and the physical reasoning behind each:
       engineering on a slower-timescale signal, and it's worth being
       precise about that distinction if asked.
 
+6. Wavelet transform features (multi-resolution energy)
+   -> FFT assumes the frequency content of a window is stationary across
+      that whole window -- one spectrum describing all 30 cycles equally.
+      Real degradation isn't stationary: a developing fault's frequency
+      signature changes AS it progresses, even within one window. A
+      discrete wavelet transform (DWT) decomposes the signal into both
+      time and frequency simultaneously, so it can localize WHEN a
+      frequency-domain shift happened inside the window, not just that
+      one exists somewhere in it. This is why wavelet-based features are
+      the more common real-world choice for non-stationary condition-
+      monitoring signals (vibration, acoustic emission) versus plain FFT.
+      SAME HONESTY NOTE as the FFT feature: this decomposes the slower
+      cycle-to-cycle signal CMAPSS provides, not a raw vibration waveform.
+
 Output: data/cmapss/train_FD001_engineered.csv
 """
 
 import numpy as np
 import pandas as pd
+import pywt
 
 DATA_PATH = "data/cmapss/processed/train_FD001.csv"
 OUT_PATH = "data/cmapss/processed/train_FD001_engineered.csv"
 
 ROLL_WINDOW = 5
 FFT_WINDOW = 30
+WAVELET_WINDOW = 64      # db4 @ level 3 needs a longer window than the FFT feature
+WAVELET_NAME = "db4"
+WAVELET_LEVEL = 3
 
 # Sensors with known, documented physical meaning -- used for physics features
 TEMP_SENSORS = ["sensor_2", "sensor_3", "sensor_4"]   # T24, T30, T50
-PRESSURE_SENSOR = "sensor_11"                          # Ps30
+PRESSURE_SENSOR = "sensor_11"     # Ps30
 KEY_SENSORS_FOR_ROLLING = ["sensor_2", "sensor_3", "sensor_4", "sensor_7", "sensor_11", "sensor_12"]
 
 # Weights reflect that turbine outlet temp (T50) is the most safety-critical
@@ -140,6 +158,58 @@ def add_fft_feature(df, sensor=PRESSURE_SENSOR, window=FFT_WINDOW):
     return df
 
 
+def add_wavelet_features(df, sensor=PRESSURE_SENSOR, window=WAVELET_WINDOW,
+                          wavelet=WAVELET_NAME, level=WAVELET_LEVEL):
+    """
+    For each cycle, take the trailing `window` cycles of `sensor` (per
+    engine), run a discrete wavelet transform (DWT), and extract the
+    energy in each decomposition level as a feature. Level 0 is the
+    coarsest approximation (slow trend); higher levels are progressively
+    finer detail coefficients (faster-changing structure within the
+    window). A rising energy in the finer detail levels, specifically,
+    is the multi-resolution equivalent of "this sensor got noisier" --
+    but localized in time, unlike the single FFT feature above.
+
+    Cycles with fewer than `window` prior readings get all-zero wavelet
+    energies (not enough history yet). Auto-caps the decomposition level
+    if `window` is too short for the requested level/wavelet combination
+    (pywt raises on that rather than silently truncating).
+    """
+    df = df.copy()
+
+    # pywt errors if `level` is too deep for `window`, given the wavelet's
+    # filter length -- cap it up front and warn once, rather than crash
+    # partway through the loop on the very first engine.
+    filter_len = pywt.Wavelet(wavelet).dec_len
+    max_level = pywt.dwt_max_level(window, filter_len)
+    if level > max_level:
+        print(f"WARNING: requested wavelet level={level} too deep for "
+              f"window={window} with '{wavelet}' (filter_len={filter_len}). "
+              f"Capping to level={max_level}.")
+        level = max_level
+
+    energy_cols = [f"{sensor}_wavelet_energy_L{i}" for i in range(level + 1)]
+    energies = {c: np.zeros(len(df)) for c in energy_cols}
+
+    for uid, group in df.groupby("unit_number"):
+        idx = group.sort_values("time_cycles").index
+        values = df.loc[idx, sensor].values
+        for i in range(len(values)):
+            if i < window - 1:
+                continue
+            segment = values[i - window + 1:i + 1]
+            segment = segment - segment.mean()
+            coeffs = pywt.wavedec(segment, wavelet, level=level)
+            # coeffs[0] = coarsest approximation, coeffs[1:] = detail
+            # coefficients from coarsest to finest
+            for lvl, c in enumerate(coeffs):
+                energies[energy_cols[lvl]][idx[i]] = float(np.sum(np.asarray(c) ** 2))
+
+    for c in energy_cols:
+        df[c] = energies[c]
+    return df
+
+
 def main():
     print("Loading labeled CMAPSS training data...")
     df = pd.read_csv(DATA_PATH)
@@ -154,7 +224,12 @@ def main():
     print(f"Adding FFT-based frequency feature (window={FFT_WINDOW}) on {PRESSURE_SENSOR}...")
     df = add_fft_feature(df)
 
-    new_cols = [c for c in df.columns if c not in pd.read_csv(DATA_PATH, nrows=1).columns]
+    print(f"Adding wavelet-based multi-resolution energy features (window={WAVELET_WINDOW}, "
+          f"wavelet={WAVELET_NAME}, level={WAVELET_LEVEL}) on {PRESSURE_SENSOR}...")
+    df = add_wavelet_features(df)
+
+    original_cols = pd.read_csv(DATA_PATH, nrows=1).columns
+    new_cols = [c for c in df.columns if c not in original_cols]
     print(f"\nNew engineered columns added ({len(new_cols)}):")
     for c in new_cols:
         print(" -", c)
@@ -163,9 +238,13 @@ def main():
     print(f"\nOutput shape: {df.shape}")
     print(f"Saved to {OUT_PATH}")
 
-    print("\nSanity check -- engine #1, cycles near end of life (thermal stress should trend upward):")
+    print("\nSanity check -- engine #1, cycles near end of life (thermal stress "
+          "and wavelet detail energy should trend upward):")
     eng1 = df[df["unit_number"] == 1].tail(8)
-    print(eng1[["time_cycles", "RUL", "thermal_stress_index", "cumulative_thermal_stress"]].to_string(index=False))
+    wavelet_check_col = f"{PRESSURE_SENSOR}_wavelet_energy_L{WAVELET_LEVEL}"
+    cols_to_show = ["time_cycles", "RUL", "thermal_stress_index",
+                     "cumulative_thermal_stress", wavelet_check_col]
+    print(eng1[cols_to_show].to_string(index=False))
 
 
 if __name__ == "__main__":
