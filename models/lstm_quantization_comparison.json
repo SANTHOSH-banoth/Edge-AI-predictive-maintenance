@@ -1,0 +1,17 @@
+{
+  "onnx_fp32": {
+    "rmse": 12.803,
+    "mae": 9.135,
+    "cmapss_score": 267.003,
+    "latency_ms": 0.182,
+    "size_kb": 218.337
+  },
+  "onnx_int8": {
+    "rmse": 12.847,
+    "mae": 9.133,
+    "cmapss_score": 271.17,
+    "latency_ms": 0.153,
+    "size_kb": 63.98
+  },
+  "max_prediction_diff": 1.1262664794921875
+}

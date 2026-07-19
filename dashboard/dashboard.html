@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EDGE-01 // Wear Trace Monitor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #080b10;
+    --bg-panel: #10151d;
+    --bg-panel-raised: #151b25;
+    --chrome: #263140;
+    --chrome-bright: #3a4a5e;
+    --text-primary: #dbe4ee;
+    --text-dim: #6b7a8d;
+    --text-faint: #3f4c5c;
+    --healthy: #39d98a;
+    --healthy-dim: #1c6b46;
+    --watch: #e8a83d;
+    --alert: #ef5b5b;
+    --alert-dim: #5c2529;
+    --cyan: #4fc3f7;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg-deep);
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(79,195,247,0.05), transparent 40%),
+      radial-gradient(circle at 85% 100%, rgba(57,217,138,0.04), transparent 40%);
+    color: var(--text-primary);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  /* ---- Header ---- */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 1px solid var(--chrome);
+    padding-bottom: 16px;
+    margin-bottom: 20px;
+  }
+  .header-left .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .header-left h1 {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin-top: 4px;
+  }
+  .header-left h1 .accent { color: var(--cyan); }
+  .header-right {
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+  }
+  .header-right .model-tag {
+    color: var(--text-primary);
+    background: var(--bg-panel-raised);
+    border: 1px solid var(--chrome);
+    padding: 3px 8px;
+    border-radius: 3px;
+    margin-top: 4px;
+    display: inline-block;
+  }
+
+  /* ---- Status strip ---- */
+  .status-strip {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr 1fr;
+    gap: 1px;
+    background: var(--chrome);
+    border: 1px solid var(--chrome);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .status-cell {
+    background: var(--bg-panel);
+    padding: 14px 18px;
+  }
+  .status-cell .label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .status-cell .value {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 600;
+  }
+  .status-cell .value.sm { font-size: 17px; }
+  .status-cell .sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 3px;
+  }
+  .state-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .state-pill .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .state-healthy { color: var(--healthy); }
+  .state-healthy .dot { background: var(--healthy); box-shadow: 0 0 8px var(--healthy); }
+  .state-alert { color: var(--alert); }
+  .state-alert .dot { background: var(--alert); box-shadow: 0 0 8px var(--alert); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  /* ---- Main chart panel ---- */
+  .panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--chrome);
+    border-radius: 6px;
+    padding: 18px 20px 14px;
+    margin-bottom: 16px;
+  }
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .panel-title .legend { display: flex; gap: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; }
+  .legend-swatch { width: 10px; height: 2px; display: inline-block; }
+
+  #mainChart { width: 100%; height: 220px; display: block; cursor: crosshair; }
+  #sparkRow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 4px; }
+  .spark-box { padding-top: 6px; }
+  .spark-box .spark-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    display: flex;
+    justify-content: space-between;
+  }
+  .spark-box .spark-label .now { color: var(--text-primary); font-weight: 600; }
+  .spark-box svg { width: 100%; height: 44px; display: block; margin-top: 2px; }
+
+  /* ---- Scrubber ---- */
+  .scrub-wrap { margin-top: 14px; }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--chrome);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--cyan);
+    border: 2px solid var(--bg-deep);
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(79,195,247,0.6);
+  }
+  .scrub-labels {
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 10px; color: var(--text-faint);
+    margin-top: 4px;
+  }
+
+  /* ---- Readout grid ---- */
+  .readout-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 1px;
+    background: var(--chrome);
+    border: 1px solid var(--chrome);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .readout-cell {
+    background: var(--bg-panel);
+    padding: 12px 14px;
+  }
+  .readout-cell .label {
+    font-family: var(--mono); font-size: 9.5px; color: var(--text-dim);
+    letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 5px;
+  }
+  .readout-cell .value { font-family: var(--mono); font-size: 15px; font-weight: 600; }
+
+  /* ---- Footer note ---- */
+  .footnote {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    line-height: 1.6;
+    border-top: 1px solid var(--chrome);
+    padding-top: 12px;
+  }
+  .footnote b { color: var(--text-dim); }
+
+  .loading, .error {
+    font-family: var(--mono);
+    color: var(--text-dim);
+    padding: 60px 0;
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .error { color: var(--watch); }
+  .error code {
+    display: block;
+    background: var(--bg-panel-raised);
+    border: 1px solid var(--chrome);
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin-top: 10px;
+    color: var(--cyan);
+  }
+
+  @media (max-width: 720px) {
+    .status-strip { grid-template-columns: 1fr 1fr; }
+    #sparkRow { grid-template-columns: 1fr 1fr; }
+    .readout-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="eyebrow">Edge AI &middot; Predictive Maintenance</div>
+      <h1>EDGE&#8209;01 <span class="accent">// WEAR TRACE</span></h1>
+    </div>
+    <div class="header-right">
+      Runtime: ONNX &middot; CPUExecutionProvider<br>
+      <span class="model-tag" id="machineTag">MACHINE — </span>
+    </div>
+  </div>
+
+  <div id="app">
+    <div class="loading">LOADING STREAM_DATA.JSON …</div>
+  </div>
+
+</div>
+
+<script>
+async function boot() {
+  const app = document.getElementById('app');
+  let records;
+  try {
+    const res = await fetch('./stream_data.json');
+    if (!res.ok) throw new Error('bad response');
+    records = await res.json();
+  } catch (e) {
+    app.innerHTML = `
+      <div class="error">
+        COULD NOT LOAD stream_data.json<br>
+        Browsers block local file:// fetches. Serve this folder instead:
+        <code>cd dashboard<br>python -m http.server 8000</code>
+        then open http://localhost:8000/dashboard.html
+      </div>`;
+    return;
+  }
+  render(records);
+}
+
+function render(records) {
+  const app = document.getElementById('app');
+  const N = records.length;
+  const alerts = records.filter(r => r.prediction === 'FAILURE RISK');
+  const machineTag = document.getElementById('machineTag');
+  machineTag.textContent = 'MACHINE — TYPE M';
+
+  app.innerHTML = `
+    <div class="status-strip">
+      <div class="status-cell">
+        <div class="label">Current state</div>
+        <div class="value" id="statePill"></div>
+        <div class="sub" id="stateSub"></div>
+      </div>
+      <div class="status-cell">
+        <div class="label">Failure probability</div>
+        <div class="value" id="probVal">—</div>
+        <div class="sub">decision threshold 0.50</div>
+      </div>
+      <div class="status-cell">
+        <div class="label">Timestep</div>
+        <div class="value" id="tVal">—</div>
+        <div class="sub">of ${N - 1} (5 min / step)</div>
+      </div>
+      <div class="status-cell">
+        <div class="label">Alerts raised</div>
+        <div class="value" id="alertVal">${alerts.length} / ${N}</div>
+        <div class="sub" id="alertSub">first at t=${alerts.length ? alerts[0].t : '—'}</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">
+        <span>Failure probability over time</span>
+        <span class="legend">
+          <span class="legend-item"><span class="legend-swatch" style="background:var(--cyan)"></span>p(failure)</span>
+          <span class="legend-item"><span class="legend-swatch" style="background:var(--alert)"></span>alert (p&gt;0.5)</span>
+          <span class="legend-item"><span class="legend-swatch" style="background:var(--text-faint)"></span>threshold</span>
+        </span>
+      </div>
+      <svg id="mainChart" viewBox="0 0 1000 220" preserveAspectRatio="none"></svg>
+
+      <div class="scrub-wrap">
+        <input type="range" id="scrubber" min="0" max="${N - 1}" value="0" step="1">
+        <div class="scrub-labels"><span>t=0 (healthy)</span><span>t=${N - 1} (end of run)</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title"><span>Sensor traces at cursor</span></div>
+      <div id="sparkRow"></div>
+    </div>
+
+    <div class="readout-grid" id="readoutGrid"></div>
+
+    <div class="footnote">
+      <b>Reading this:</b> this is one machine's simulated lifetime (120 synthetic 5&#8209;minute
+      readings, seeded), not a sample of the fleet — tool wear accumulates every step, so the back
+      half of the run is expected to look much riskier than a fleet-wide base rate would suggest.
+      What matters here is that alerts <b>cluster near end-of-life</b> rather than firing at random
+      early on. Drag the scrubber or click the chart to inspect any timestep.
+    </div>
+  `;
+
+  const chart = document.getElementById('mainChart');
+  const scrubber = document.getElementById('scrubber');
+  const W = 1000, H = 220, PAD = 8;
+  const xAt = t => PAD + (t / (N - 1)) * (W - 2 * PAD);
+  const yAt = p => H - PAD - p * (H - 2 * PAD);
+
+  // Build path
+  let path = `M ${xAt(0)} ${yAt(records[0].failure_probability)}`;
+  for (let i = 1; i < N; i++) path += ` L ${xAt(i)} ${yAt(records[i].failure_probability)}`;
+  let area = path + ` L ${xAt(N - 1)} ${H - PAD} L ${xAt(0)} ${H - PAD} Z`;
+
+  const alertDots = records.filter(r => r.prediction === 'FAILURE RISK')
+    .map(r => `<circle cx="${xAt(r.t)}" cy="${yAt(r.failure_probability)}" r="3" fill="var(--alert)" />`)
+    .join('');
+
+  chart.innerHTML = `
+    <defs>
+      <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--cyan)" stop-opacity="0.25" />
+        <stop offset="100%" stop-color="var(--cyan)" stop-opacity="0" />
+      </linearGradient>
+    </defs>
+    <line x1="${PAD}" y1="${yAt(0.5)}" x2="${W-PAD}" y2="${yAt(0.5)}" stroke="var(--text-faint)" stroke-width="1" stroke-dasharray="4 4" />
+    <path d="${area}" fill="url(#areaFill)" />
+    <path d="${path}" fill="none" stroke="var(--cyan)" stroke-width="1.75" />
+    ${alertDots}
+    <line id="cursorLine" x1="${xAt(0)}" y1="0" x2="${xAt(0)}" y2="${H}" stroke="var(--text-dim)" stroke-width="1" />
+    <circle id="cursorDot" cx="${xAt(0)}" cy="${yAt(records[0].failure_probability)}" r="5" fill="var(--bg-deep)" stroke="var(--text-primary)" stroke-width="2" />
+  `;
+
+  function sparkline(id, series, color, key) {
+    const vals = series.map(r => r[key]);
+    const min = Math.min(...vals), max = Math.max(...vals) || 1;
+    const w = 260, h = 40;
+    const sx = t => (t / (N - 1)) * w;
+    const sy = v => h - ((v - min) / (max - min || 1)) * h;
+    let p = `M ${sx(0)} ${sy(vals[0])}`;
+    for (let i = 1; i < vals.length; i++) p += ` L ${sx(i)} ${sy(vals[i])}`;
+    return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" id="${id}">
+      <path d="${p}" fill="none" stroke="${color}" stroke-width="1.5" />
+      <circle id="${id}-dot" cx="${sx(0)}" cy="${sy(vals[0])}" r="3" fill="${color}" />
+    </svg>`;
+  }
+
+  const sparkDefs = [
+    { key: 'tool_wear_min', label: 'TOOL WEAR (min)', color: 'var(--watch)' },
+    { key: 'torque_Nm', label: 'TORQUE (Nm)', color: 'var(--cyan)' },
+    { key: 'process_temp_K', label: 'PROCESS TEMP (K)', color: 'var(--healthy)' },
+    { key: 'rot_speed_rpm', label: 'ROT. SPEED (rpm)', color: 'var(--alert)' },
+  ];
+  document.getElementById('sparkRow').innerHTML = sparkDefs.map(s => `
+    <div class="spark-box">
+      <div class="spark-label"><span>${s.label}</span><span class="now" id="now-${s.key}"></span></div>
+      ${sparkline('spark-' + s.key, records, s.color, s.key)}
+    </div>
+  `).join('');
+
+  function paintReadout(r) {
+    document.getElementById('readoutGrid').innerHTML = `
+      <div class="readout-cell"><div class="label">Air temp</div><div class="value">${r.air_temp_K.toFixed(1)} K</div></div>
+      <div class="readout-cell"><div class="label">Process temp</div><div class="value">${r.process_temp_K.toFixed(1)} K</div></div>
+      <div class="readout-cell"><div class="label">Rot. speed</div><div class="value">${r.rot_speed_rpm.toFixed(0)} rpm</div></div>
+      <div class="readout-cell"><div class="label">Torque</div><div class="value">${r.torque_Nm.toFixed(1)} Nm</div></div>
+      <div class="readout-cell"><div class="label">Tool wear</div><div class="value">${r.tool_wear_min.toFixed(1)} min</div></div>
+      <div class="readout-cell"><div class="label">p(failure)</div><div class="value">${r.failure_probability.toFixed(3)}</div></div>
+    `;
+  }
+
+  function update(t) {
+    const r = records[t];
+    scrubber.value = t;
+    document.getElementById('tVal').textContent = 't = ' + t;
+    document.getElementById('probVal').textContent = r.failure_probability.toFixed(3);
+    const pill = document.getElementById('statePill');
+    const sub = document.getElementById('stateSub');
+    if (r.prediction === 'FAILURE RISK') {
+      pill.innerHTML = `<span class="state-pill state-alert"><span class="dot"></span>FAILURE RISK</span>`;
+      sub.textContent = 'model crossed decision threshold';
+    } else {
+      pill.innerHTML = `<span class="state-pill state-healthy"><span class="dot"></span>HEALTHY</span>`;
+      sub.textContent = 'within normal operating envelope';
+    }
+    document.getElementById('cursorLine').setAttribute('x1', xAt(t));
+    document.getElementById('cursorLine').setAttribute('x2', xAt(t));
+    document.getElementById('cursorDot').setAttribute('cx', xAt(t));
+    document.getElementById('cursorDot').setAttribute('cy', yAt(r.failure_probability));
+
+    sparkDefs.forEach(s => {
+      document.getElementById('now-' + s.key).textContent = r[s.key].toFixed(1);
+      const w = 260, h = 40;
+      const sx = (t / (N - 1)) * w;
+      const vals = records.map(rr => rr[s.key]);
+      const min = Math.min(...vals), max = Math.max(...vals) || 1;
+      const sy = h - ((r[s.key] - min) / (max - min || 1)) * h;
+      const dot = document.getElementById('spark-' + s.key + '-dot');
+      if (dot) { dot.setAttribute('cx', sx); dot.setAttribute('cy', sy); }
+    });
+
+    paintReadout(r);
+  }
+
+  scrubber.addEventListener('input', e => update(parseInt(e.target.value, 10)));
+  chart.addEventListener('mousemove', e => {
+    if (e.buttons !== 1) return;
+    const rect = chart.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    update(Math.round(frac * (N - 1)));
+  });
+  chart.addEventListener('click', e => {
+    const rect = chart.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    update(Math.round(frac * (N - 1)));
+  });
+
+  // Start cursor at the first alert if one exists, else 0
+  update(alerts.length ? alerts[0].t : 0);
+}
+
+boot();
+</script>
+</body>
+</html>

@@ -59,6 +59,33 @@ UNIT_COL = "unit_number"
 TIME_COL = "time_cycles"
 
 
+def cmapss_score(y_true, y_pred):
+    """
+    Official CMAPSS asymmetric scoring function (Saxena & Goebel, 2008) --
+    identical formula used in cnn_rul.py and lstm_rul.py, so this number is
+    directly comparable across all three models, not just RMSE.
+
+    Late predictions (predicted RUL > actual RUL, i.e. the model said "more
+    life left" than there really was) are penalized far more harshly than
+    early ones, because that's the dangerous error in real maintenance
+    scheduling -- missing a failure window costs much more than an early,
+    over-cautious maintenance call.
+
+    d = y_pred - y_true
+        d < 0 (early/conservative prediction): score += exp(-d/13) - 1
+        d >= 0 (late/optimistic prediction):   score += exp(d/10) - 1
+    """
+    y_true = np.asarray(y_true, dtype=np.float64)
+    y_pred = np.asarray(y_pred, dtype=np.float64)
+    d = y_pred - y_true
+    early = d < 0
+    late = ~early
+    score = np.zeros_like(d, dtype=np.float64)
+    score[early] = np.exp(-d[early] / 13.0) - 1.0
+    score[late] = np.exp(d[late] / 10.0) - 1.0
+    return float(np.sum(score))
+
+
 def load_true_rul(path):
     """RUL_FD001.txt: one integer per line, in engine order (1, 2, 3, ...)."""
     true_rul = pd.read_csv(path, header=None, names=["true_RUL"])
@@ -124,11 +151,17 @@ def main():
 
     test_rmse = np.sqrt(mean_squared_error(true_vals, preds_clipped))
     test_mae = mean_absolute_error(true_vals, preds_clipped)
+    test_score = cmapss_score(true_vals.values, preds_clipped)
 
     print("\n=== Test-set evaluation (real CMAPSS held-out engines) ===")
     print(f"Engines evaluated: {len(merged)}")
-    print(f"Test RMSE: {test_rmse:.3f}")
-    print(f"Test MAE:  {test_mae:.3f}")
+    print(f"Test RMSE:    {test_rmse:.3f}")
+    print(f"Test MAE:     {test_mae:.3f}")
+    print(f"CMAPSS Score: {test_score:.1f}  (lower is better; same formula as cnn_rul.py/lstm_rul.py)")
+    print(f"\nFor direct comparison against your other models (fill in from their printed output):")
+    print(f"  XGBoost   -> RMSE {test_rmse:.3f}, CMAPSS Score {test_score:.1f}")
+    print(f"  LSTM      -> RMSE 12.803, CMAPSS Score 267.0")
+    print(f"  CNN       -> RMSE 18.063, CMAPSS Score 649.7")
     if cv_rmse is not None:
         print(f"\nFor comparison:")
         print(f"  Training CV RMSE:        {cv_rmse:.3f}")

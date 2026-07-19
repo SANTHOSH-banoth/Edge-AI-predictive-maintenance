@@ -181,6 +181,7 @@ def main():
     # -------------------------------------------------------------
     np.save(os.path.join(SEQ_DIR, "X_train.npy"), X_train)
     np.save(os.path.join(SEQ_DIR, "y_train.npy"), y_train)
+    np.save(os.path.join(SEQ_DIR, "units_train.npy"), units_train)
     np.save(os.path.join(SEQ_DIR, "X_test.npy"), X_test)
     np.save(os.path.join(SEQ_DIR, "y_test.npy"), y_test)
 

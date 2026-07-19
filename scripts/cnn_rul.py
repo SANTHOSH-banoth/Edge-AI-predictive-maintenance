@@ -43,24 +43,37 @@ def load_sequences(seq_dir=SEQ_DIR):
     print("Loading sequence arrays...")
     X_train = np.load(os.path.join(seq_dir, "X_train.npy"))
     y_train = np.load(os.path.join(seq_dir, "y_train.npy"))
+    units_train = np.load(os.path.join(seq_dir, "units_train.npy"))
     X_test = np.load(os.path.join(seq_dir, "X_test.npy"))
     y_test = np.load(os.path.join(seq_dir, "y_test.npy"))
     print(f"X_train: {X_train.shape}, y_train: {y_train.shape}")
     print(f"X_test:  {X_test.shape}, y_test:  {y_test.shape}")
-    return X_train, y_train, X_test, y_test
+    return X_train, y_train, units_train, X_test, y_test
 
-
-def make_train_val_loaders(X_train, y_train, val_split=VAL_SPLIT, batch_size=BATCH_SIZE, seed=SEED):
-    n = X_train.shape[0]
+def make_train_val_loaders(X_train, y_train, units_train, val_split=VAL_SPLIT, batch_size=BATCH_SIZE, seed=SEED):
+    # Split by ENGINE, not by window index. Consecutive windows overlap by
+    # up to (window_length - 1) timesteps, so a random window-level split
+    # leaks near-duplicate data between train and val from the same engine
+    # -- this was the original bug: val RMSE (~4-5) looked far better than
+    # true test RMSE (17.4) because "validation" was largely memorization,
+    # not generalization. Splitting whole engines out fixes that.
+    unique_units = np.unique(units_train)
     rng = np.random.default_rng(seed)
-    idx = rng.permutation(n)
-    n_val = int(n * val_split)
-    val_idx, train_idx = idx[:n_val], idx[n_val:]
+    shuffled_units = rng.permutation(unique_units)
+    n_val_units = max(1, int(len(unique_units) * val_split))
+    val_units = set(shuffled_units[:n_val_units])
+    train_units = set(shuffled_units[n_val_units:])
 
-    X_tr = torch.tensor(X_train[train_idx], dtype=torch.float32)
-    y_tr = torch.tensor(y_train[train_idx], dtype=torch.float32)
-    X_val = torch.tensor(X_train[val_idx], dtype=torch.float32)
-    y_val = torch.tensor(y_train[val_idx], dtype=torch.float32)
+    train_mask = np.isin(units_train, list(train_units))
+    val_mask = np.isin(units_train, list(val_units))
+
+    print(f"Engine-level split: {len(train_units)} train engines, {len(val_units)} val engines "
+          f"({train_mask.sum()} train windows, {val_mask.sum()} val windows)")
+
+    X_tr = torch.tensor(X_train[train_mask], dtype=torch.float32)
+    y_tr = torch.tensor(y_train[train_mask], dtype=torch.float32)
+    X_val = torch.tensor(X_train[val_mask], dtype=torch.float32)
+    y_val = torch.tensor(y_train[val_mask], dtype=torch.float32)
 
     train_loader = DataLoader(TensorDataset(X_tr, y_tr), batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(TensorDataset(X_val, y_val), batch_size=batch_size, shuffle=False)
@@ -198,10 +211,10 @@ def main():
     torch.manual_seed(SEED)
     np.random.seed(SEED)
 
-    X_train, y_train, X_test, y_test = load_sequences()
+    X_train, y_train, units_train, X_test, y_test = load_sequences()
     n_features = X_train.shape[2]
 
-    train_loader, val_loader = make_train_val_loaders(X_train, y_train)
+    train_loader, val_loader = make_train_val_loaders(X_train, y_train, units_train)
 
     model = CNNRegressor(n_features=n_features)
     print(f"\nModel: {model}\n")

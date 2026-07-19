@@ -7,12 +7,13 @@ Loads pre-built sequence windows (from scripts/build_sequences.py), trains a
 small 2-layer LSTM with dropout, evaluates with RMSE and the CMAPSS
 asymmetric scoring function, and saves the trained model.
 
-FIX APPLIED (see notes below): the original version trained on raw RUL
-values (0-125) with no gradient clipping. For an LSTM specifically, this
-combination is unstable -- gradients flowing back through many recurrent
-time steps at that target scale tend to collapse the model into just
-predicting the mean RUL for every input (which trivially minimizes MSE
-without learning anything from the sensors). Two small fixes solve it:
+FIX APPLIED #1 (RUL scale / gradient stability): the original version
+trained on raw RUL values (0-125) with no gradient clipping. For an LSTM
+specifically, this combination is unstable -- gradients flowing back
+through many recurrent time steps at that target scale tend to collapse
+the model into just predicting the mean RUL for every input (which
+trivially minimizes MSE without learning anything from the sensors). Two
+small fixes solve it:
   1. Normalize the RUL target to [0, 1] during training (divide by
      RUL_SCALE), then multiply predictions back before evaluating/scoring.
   2. Clip gradients to a max norm of 1.0 after backward(), before the
@@ -21,6 +22,15 @@ without learning anything from the sensors). Two small fixes solve it:
 Neither the architecture nor the CNN needed this fix; the CNN's BatchNorm
 layers already kept internal activations normalized regardless of target
 scale, which is part of what BatchNorm is for.
+
+FIX APPLIED #2 (train/val split leakage): the original make_train_val_loaders
+split TRAINING WINDOWS randomly by index. Since consecutive sliding windows
+overlap by up to (window_length - 1) timesteps, a random split put
+near-duplicate windows from the SAME engine into both train and val --
+validation loss was measuring memorization, not generalization, and early
+stopping was triggering on a leaky signal. This version splits by ENGINE
+(unit_number) instead, using units_train.npy (saved by build_sequences.py),
+so no engine's windows appear in both sets. Same fix applied to cnn_rul.py.
 
 Usage:
     python src/models/lstm_rul.py
@@ -62,26 +72,39 @@ def load_sequences(seq_dir=SEQ_DIR):
     print("Loading sequence arrays...")
     X_train = np.load(os.path.join(seq_dir, "X_train.npy"))
     y_train = np.load(os.path.join(seq_dir, "y_train.npy"))
+    units_train = np.load(os.path.join(seq_dir, "units_train.npy"))
     X_test = np.load(os.path.join(seq_dir, "X_test.npy"))
     y_test = np.load(os.path.join(seq_dir, "y_test.npy"))
 
     print(f"X_train: {X_train.shape}, y_train: {y_train.shape}")
     print(f"X_test:  {X_test.shape}, y_test:  {y_test.shape}")
-    return X_train, y_train, X_test, y_test
+    return X_train, y_train, units_train, X_test, y_test
 
 
-def make_train_val_loaders(X_train, y_train, val_split=VAL_SPLIT, batch_size=BATCH_SIZE, seed=SEED):
-    n = X_train.shape[0]
+def make_train_val_loaders(X_train, y_train, units_train, val_split=VAL_SPLIT,
+                            batch_size=BATCH_SIZE, seed=SEED):
+    # Split by ENGINE, not by window index -- see FIX APPLIED #2 note at
+    # top of file. Overlapping windows from the same engine landing in
+    # both train and val inflated validation performance and made early
+    # stopping unreliable.
+    unique_units = np.unique(units_train)
     rng = np.random.default_rng(seed)
-    idx = rng.permutation(n)
-    n_val = int(n * val_split)
-    val_idx, train_idx = idx[:n_val], idx[n_val:]
+    shuffled_units = rng.permutation(unique_units)
+    n_val_units = max(1, int(len(unique_units) * val_split))
+    val_units = set(shuffled_units[:n_val_units])
+    train_units = set(shuffled_units[n_val_units:])
 
-    X_tr = torch.tensor(X_train[train_idx], dtype=torch.float32)
-    # Target normalized to [0, 1] -- see fix notes at top of file
-    y_tr = torch.tensor(y_train[train_idx] / RUL_SCALE, dtype=torch.float32)
-    X_val = torch.tensor(X_train[val_idx], dtype=torch.float32)
-    y_val = torch.tensor(y_train[val_idx] / RUL_SCALE, dtype=torch.float32)
+    train_mask = np.isin(units_train, list(train_units))
+    val_mask = np.isin(units_train, list(val_units))
+
+    print(f"Engine-level split: {len(train_units)} train engines, {len(val_units)} val engines "
+          f"({train_mask.sum()} train windows, {val_mask.sum()} val windows)")
+
+    X_tr = torch.tensor(X_train[train_mask], dtype=torch.float32)
+    # Target normalized to [0, 1] -- see FIX APPLIED #1 note at top of file
+    y_tr = torch.tensor(y_train[train_mask] / RUL_SCALE, dtype=torch.float32)
+    X_val = torch.tensor(X_train[val_mask], dtype=torch.float32)
+    y_val = torch.tensor(y_train[val_mask] / RUL_SCALE, dtype=torch.float32)
 
     train_ds = TensorDataset(X_tr, y_tr)
     val_ds = TensorDataset(X_val, y_val)
@@ -237,10 +260,10 @@ def main():
     torch.manual_seed(SEED)
     np.random.seed(SEED)
 
-    X_train, y_train, X_test, y_test = load_sequences()
+    X_train, y_train, units_train, X_test, y_test = load_sequences()
     n_features = X_train.shape[2]
 
-    train_loader, val_loader = make_train_val_loaders(X_train, y_train)
+    train_loader, val_loader = make_train_val_loaders(X_train, y_train, units_train)
 
     model = LSTMRegressor(n_features=n_features)
     print(f"\nModel: {model}\n")

@@ -6,13 +6,28 @@ reconstruction-error autoencoder.
 
 Key idea: train ONLY on "healthy" windows (early-life engine data, far from
 failure), then measure reconstruction error on all data. Windows the model
-struggles to reconstruct are flagged as anomalous — this can catch failure
+struggles to reconstruct are flagged as anomalous -- this can catch failure
 modes a supervised RUL/classifier model never saw labeled examples of.
 
 "Healthy" windows are defined here as windows whose true RUL (from the
 sequence label) is above a threshold (default: top 70% of the RUL range,
 i.e. we exclude the last ~30% of each engine's life, which is where
 degradation dominates the signal).
+
+FIX APPLIED #1 (train/val split leakage): the original make_train_val_loaders
+split healthy windows randomly by index. Since consecutive sliding windows
+overlap heavily, this leaked near-duplicate windows from the same engine
+into both train and val -- same bug as cnn_rul.py / lstm_rul.py. Fixed by
+splitting whole engines (via units_train.npy) into train/val first.
+
+FIX APPLIED #2 (threshold contamination): the original computed the anomaly
+threshold AND the "healthy flag rate" sanity check using reconstruction_error
+on X_healthy -- the FULL healthy set, including the windows the model was
+directly trained to reconstruct. That's not a real held-out test: a model
+will trivially reconstruct data it was optimized on, so "~5% of healthy
+windows flagged" was largely checking training-set fit, not generalization.
+Fixed by computing both the threshold and the sanity-check flag rate using
+ONLY the held-out healthy VALIDATION windows (from engines never trained on).
 
 Usage:
     python src/models/autoencoder_anomaly.py
@@ -59,36 +74,51 @@ def load_sequences(seq_dir=SEQ_DIR):
     print("Loading sequence arrays...")
     X_train = np.load(os.path.join(seq_dir, "X_train.npy"))
     y_train = np.load(os.path.join(seq_dir, "y_train.npy"))
+    units_train = np.load(os.path.join(seq_dir, "units_train.npy"))
     X_test = np.load(os.path.join(seq_dir, "X_test.npy"))
     y_test = np.load(os.path.join(seq_dir, "y_test.npy"))
     print(f"X_train: {X_train.shape}, y_train: {y_train.shape}")
     print(f"X_test:  {X_test.shape}, y_test:  {y_test.shape}")
-    return X_train, y_train, X_test, y_test
+    return X_train, y_train, units_train, X_test, y_test
 
 
-def split_healthy_vs_all(X_train, y_train, healthy_percentile=HEALTHY_RUL_PERCENTILE):
-    """Split training windows into 'healthy' (high RUL) vs the rest."""
+def split_healthy_vs_all(X_train, y_train, units_train, healthy_percentile=HEALTHY_RUL_PERCENTILE):
+    """Split training windows into 'healthy' (high RUL) vs the rest.
+    Also carries units_train through so the healthy subset can later be
+    split by engine, not by window index."""
     threshold = np.percentile(y_train, healthy_percentile)
     healthy_mask = y_train >= threshold
     print(f"Healthy RUL threshold (>= {healthy_percentile}th pct): {threshold:.1f}")
     print(f"Healthy windows: {healthy_mask.sum()} / {len(y_train)}")
-    return X_train[healthy_mask], X_train[~healthy_mask], threshold
+    return (X_train[healthy_mask], units_train[healthy_mask],
+            X_train[~healthy_mask], threshold)
 
 
-def make_train_val_loaders(X_healthy, val_split=VAL_SPLIT, batch_size=BATCH_SIZE, seed=SEED):
-    n = X_healthy.shape[0]
+def make_train_val_loaders(X_healthy, units_healthy, val_split=VAL_SPLIT,
+                            batch_size=BATCH_SIZE, seed=SEED):
+    # Split by ENGINE, not by window index -- see FIX APPLIED #1 note at
+    # top of file.
+    unique_units = np.unique(units_healthy)
     rng = np.random.default_rng(seed)
-    idx = rng.permutation(n)
-    n_val = int(n * val_split)
-    val_idx, train_idx = idx[:n_val], idx[n_val:]
+    shuffled_units = rng.permutation(unique_units)
+    n_val_units = max(1, int(len(unique_units) * val_split))
+    val_units = set(shuffled_units[:n_val_units])
+    train_units = set(shuffled_units[n_val_units:])
 
-    X_tr = torch.tensor(X_healthy[train_idx], dtype=torch.float32)
-    X_val = torch.tensor(X_healthy[val_idx], dtype=torch.float32)
+    train_mask = np.isin(units_healthy, list(train_units))
+    val_mask = np.isin(units_healthy, list(val_units))
+
+    print(f"Engine-level split (healthy windows): {len(train_units)} train engines, "
+          f"{len(val_units)} val engines ({train_mask.sum()} train windows, "
+          f"{val_mask.sum()} val windows)")
+
+    X_tr = torch.tensor(X_healthy[train_mask], dtype=torch.float32)
+    X_val = torch.tensor(X_healthy[val_mask], dtype=torch.float32)
 
     # Autoencoder: input IS the target, so dataset just needs X twice.
     train_loader = DataLoader(TensorDataset(X_tr, X_tr), batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(TensorDataset(X_val, X_val), batch_size=batch_size, shuffle=False)
-    return train_loader, val_loader
+    return train_loader, val_loader, X_healthy[val_mask]
 
 
 # ---------------------------------------------------------------------------
@@ -199,12 +229,14 @@ def main():
     torch.manual_seed(SEED)
     np.random.seed(SEED)
 
-    X_train, y_train, X_test, y_test = load_sequences()
+    X_train, y_train, units_train, X_test, y_test = load_sequences()
     n_features = X_train.shape[2]
     seq_len = X_train.shape[1]
 
-    X_healthy, X_degraded, threshold = split_healthy_vs_all(X_train, y_train)
-    train_loader, val_loader = make_train_val_loaders(X_healthy)
+    X_healthy, units_healthy, X_degraded, threshold = split_healthy_vs_all(
+        X_train, y_train, units_train
+    )
+    train_loader, val_loader, X_healthy_val = make_train_val_loaders(X_healthy, units_healthy)
 
     model = LSTMAutoencoder(n_features=n_features, seq_len=seq_len)
     print(f"\nModel: {model}\n")
@@ -212,13 +244,17 @@ def main():
 
     model = train_model(model, train_loader, val_loader)
 
-    # Establish anomaly threshold from held-out HEALTHY windows only.
-    healthy_val_errors = reconstruction_error(model, X_healthy)
+    # FIX APPLIED #2: establish the anomaly threshold using ONLY the
+    # held-out healthy VALIDATION windows (from engines never trained on),
+    # not the full X_healthy set which includes training data the model
+    # was directly optimized to reconstruct.
+    healthy_val_errors = reconstruction_error(model, X_healthy_val)
     anomaly_threshold = np.percentile(healthy_val_errors, ANOMALY_PERCENTILE)
-    print(f"\nAnomaly score threshold ({ANOMALY_PERCENTILE}th pct of healthy errors): {anomaly_threshold:.5f}")
+    print(f"\nAnomaly score threshold ({ANOMALY_PERCENTILE}th pct of HELD-OUT healthy val errors): "
+          f"{anomaly_threshold:.5f}")
 
     # Sanity check: degraded (near-failure) windows should show higher error
-    # and a higher flagged-anomaly rate than healthy windows.
+    # and a higher flagged-anomaly rate than healthy validation windows.
     degraded_errors = reconstruction_error(model, X_degraded)
     test_errors = reconstruction_error(model, X_test)
 
@@ -226,10 +262,10 @@ def main():
     degraded_flag_rate = (degraded_errors > anomaly_threshold).mean()
     test_flag_rate = (test_errors > anomaly_threshold).mean()
 
-    print("\n=== Anomaly Detection Sanity Check ===")
-    print(f"Healthy windows  flagged anomalous: {healthy_flag_rate:.1%}  (expect ~{100 - ANOMALY_PERCENTILE}%)")
-    print(f"Degraded windows flagged anomalous: {degraded_flag_rate:.1%}  (expect notably higher)")
-    print(f"Test windows     flagged anomalous: {test_flag_rate:.1%}")
+    print("\n=== Anomaly Detection Sanity Check (all on held-out data) ===")
+    print(f"Healthy VAL windows flagged anomalous: {healthy_flag_rate:.1%}  (expect ~{100 - ANOMALY_PERCENTILE}%)")
+    print(f"Degraded windows    flagged anomalous: {degraded_flag_rate:.1%}  (expect notably higher)")
+    print(f"Test windows        flagged anomalous: {test_flag_rate:.1%}")
 
     os.makedirs(MODEL_OUT_DIR, exist_ok=True)
     torch.save({
