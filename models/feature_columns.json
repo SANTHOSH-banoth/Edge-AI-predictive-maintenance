@@ -1,1 +1,1 @@
-["Type_encoded", "Air_temperature_K", "Process_temperature_K", "Rotational_speed_rpm", "Torque_Nm", "Tool_wear_min", "Temp_diff_K", "Power_W", "Wear_Torque_Product"]
+["Type_encoded", "Air_temperature_K", "Process_temperature_K", "Rotational_speed_rpm", "Torque_Nm", "Tool_wear_min", "Temp_diff_K", "Power_W", "Wear_Torque_Product", "vib_rms", "vib_crest_factor", "vib_bpfo_energy", "vib_bpfi_energy", "vib_bsf_energy"]

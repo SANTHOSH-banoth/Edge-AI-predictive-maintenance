@@ -1,4 +1,4 @@
 version,file_size_kb,single_row_latency_ms,test_rmse
-Native XGBoost,1498.1,2.934,14.094
-ONNX fp32,804.6,0.039,14.094
-ONNX int8 (quantized),804.7,0.049,14.094
+Native XGBoost,1394.3,2.819,13.993
+ONNX fp32,744.0,0.028,13.993
+ONNX int8 (quantized),744.0,0.211,13.993

@@ -1,49 +1,49 @@
 {
   "cloud_model": {
-    "accuracy": 0.9545,
-    "precision": 0.6576,
-    "recall": 0.9826,
-    "f1": 0.7879,
-    "roc_auc": 0.9764,
-    "avg_latency_ms_per_sample": 0.02449,
+    "accuracy": 0.9525,
+    "precision": 0.6522,
+    "recall": 0.9593,
+    "f1": 0.7765,
+    "roc_auc": 0.9725,
+    "avg_latency_ms_per_sample": 0.03095,
     "confusion_matrix": [
       [
         1740,
         88
       ],
       [
-        3,
-        169
+        7,
+        165
       ]
     ],
-    "model_size_kb": 3523.67,
+    "model_size_kb": 3868.35,
     "framework": "scikit-learn RandomForest (200 trees)"
   },
   "edge_model_sklearn": {
     "accuracy": 0.935,
-    "precision": 0.5755,
-    "recall": 0.9302,
-    "f1": 0.7111,
-    "roc_auc": 0.97,
-    "avg_latency_ms_per_sample": 0.00034,
+    "precision": 0.5761,
+    "recall": 0.9244,
+    "f1": 0.7098,
+    "roc_auc": 0.9728,
+    "avg_latency_ms_per_sample": 0.00037,
     "confusion_matrix": [
       [
-        1710,
-        118
+        1711,
+        117
       ],
       [
-        12,
-        160
+        13,
+        159
       ]
     ],
-    "model_size_kb": 15.66,
+    "model_size_kb": 17.55,
     "framework": "scikit-learn MLP (16,8)"
   },
   "edge_model_onnx_runtime": {
-    "model_size_kb": 2.71,
-    "avg_latency_ms_per_sample": 0.02533,
+    "model_size_kb": 3.02,
+    "avg_latency_ms_per_sample": 0.02863,
     "framework": "ONNX Runtime (edge-deployable format)",
     "size_reduction_vs_cloud_pct": 99.9,
-    "speedup_vs_cloud_x": 0.97
+    "speedup_vs_cloud_x": 1.08
   }
 }

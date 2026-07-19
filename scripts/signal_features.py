@@ -18,10 +18,16 @@ NASA documents exactly what each CMAPSS sensor physically measures:
 
 Features added, and the physical reasoning behind each:
 
-1. Rolling mean / rolling std (window=5 cycles) on key sensors
+1. Rolling mean / rolling std / rolling skew (window=5 cycles) on key sensors
    -> Smooths noise, and a RISING rolling std signals the engine's
       behavior is becoming less stable cycle-to-cycle -- an early
       degradation signature before any single reading looks abnormal.
+      Rolling SKEW captures asymmetry in that short-term distribution:
+      a healthy sensor fluctuates roughly symmetrically around its mean,
+      while a component under progressive stress often shows a growing
+      number of readings pushed toward one extreme (lopsided excursions)
+      before the mean itself visibly shifts. Skew can flag that
+      asymmetry earlier than a std-based trigger alone.
 
 2. Rate of change (1-cycle diff) on key sensors
    -> A sudden jump in T50 (turbine outlet temp) between consecutive
@@ -85,6 +91,12 @@ WAVELET_WINDOW = 64      # db4 @ level 3 needs a longer window than the FFT feat
 WAVELET_NAME = "db4"
 WAVELET_LEVEL = 3
 
+# Minimum points required for a skew estimate to mean anything. Below this,
+# pandas returns NaN (skew of 1-2 points is undefined/meaningless), so we
+# fill those early-life cycles with 0 (== "not enough history yet, assume
+# no asymmetry").
+SKEW_MIN_PERIODS = 3
+
 # Sensors with known, documented physical meaning -- used for physics features
 TEMP_SENSORS = ["sensor_2", "sensor_3", "sensor_4"]   # T24, T30, T50
 PRESSURE_SENSOR = "sensor_11"     # Ps30
@@ -95,8 +107,8 @@ KEY_SENSORS_FOR_ROLLING = ["sensor_2", "sensor_3", "sensor_4", "sensor_7", "sens
 THERMAL_WEIGHTS = {"sensor_2": 0.2, "sensor_3": 0.3, "sensor_4": 0.5}
 
 
-def add_rolling_features(df, sensor_cols, window=ROLL_WINDOW):
-    """Rolling mean/std and rate-of-change, computed PER ENGINE so one
+def add_rolling_features(df, sensor_cols, window=ROLL_WINDOW, skew_min_periods=SKEW_MIN_PERIODS):
+    """Rolling mean/std/skew and rate-of-change, computed PER ENGINE so one
     engine's history never leaks into another's rolling window."""
     df = df.sort_values(["unit_number", "time_cycles"]).copy()
     grouped = df.groupby("unit_number")
@@ -107,6 +119,9 @@ def add_rolling_features(df, sensor_cols, window=ROLL_WINDOW):
         )
         df[f"{col}_roll_std{window}"] = grouped[col].transform(
             lambda s: s.rolling(window, min_periods=1).std().fillna(0)
+        )
+        df[f"{col}_roll_skew{window}"] = grouped[col].transform(
+            lambda s: s.rolling(window, min_periods=skew_min_periods).skew().fillna(0)
         )
         df[f"{col}_rate_of_change"] = grouped[col].transform(lambda s: s.diff().fillna(0))
 
@@ -215,7 +230,7 @@ def main():
     df = pd.read_csv(DATA_PATH)
     print(f"Input shape: {df.shape}")
 
-    print(f"\nAdding rolling mean/std + rate-of-change (window={ROLL_WINDOW}) for {len(KEY_SENSORS_FOR_ROLLING)} sensors...")
+    print(f"\nAdding rolling mean/std/skew + rate-of-change (window={ROLL_WINDOW}) for {len(KEY_SENSORS_FOR_ROLLING)} sensors...")
     df = add_rolling_features(df, KEY_SENSORS_FOR_ROLLING)
 
     print("Adding thermal stress index + cumulative thermal stress...")
@@ -238,12 +253,13 @@ def main():
     print(f"\nOutput shape: {df.shape}")
     print(f"Saved to {OUT_PATH}")
 
-    print("\nSanity check -- engine #1, cycles near end of life (thermal stress "
-          "and wavelet detail energy should trend upward):")
+    print("\nSanity check -- engine #1, cycles near end of life (thermal stress, "
+          "rolling skew, and wavelet detail energy should trend upward/shift):")
     eng1 = df[df["unit_number"] == 1].tail(8)
     wavelet_check_col = f"{PRESSURE_SENSOR}_wavelet_energy_L{WAVELET_LEVEL}"
+    skew_check_col = f"{PRESSURE_SENSOR}_roll_skew{ROLL_WINDOW}"
     cols_to_show = ["time_cycles", "RUL", "thermal_stress_index",
-                     "cumulative_thermal_stress", wavelet_check_col]
+                     "cumulative_thermal_stress", skew_check_col, wavelet_check_col]
     print(eng1[cols_to_show].to_string(index=False))
 
 
