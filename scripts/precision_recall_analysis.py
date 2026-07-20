@@ -2,9 +2,19 @@
 precision_recall_analysis.py
 -------------------------------
 Open thread #2: a real, quantitative precision/recall tradeoff analysis
-for the ORIGINAL edge-MLP model from Week 1 (the AI4I-style synthetic
-predictive maintenance pipeline -- the one deployed via ONNX with a
-1,276x size reduction vs the cloud RandomForest).
+for the edge-MLP model (the AI4I-style synthetic predictive maintenance
+pipeline -- deployed via ONNX with a large size reduction vs the cloud
+RandomForest).
+
+FIX APPLIED: this script originally loaded the RAW data/machine_sensor_data.csv
+and computed only 3 engineered features (Temp_diff_K, Power_W,
+Wear_Torque_Product). But train_model.py was later re-run against
+data/machine_sensor_data_engineered.csv (which also includes 5 vibration/
+bearing-fault-frequency features from vibration_features.py), so the
+saved edge_model.pkl and feature_columns.json now expect those 5 extra
+columns too. This script's test-set rebuild now matches: it loads the
+SAME engineered dataset train_model.py actually used, so the reconstructed
+test split has every column the model expects.
 
 Why this matters: the original project reported precision 57.6% / recall
 93.0% at the DEFAULT classification threshold (0.5) without examining
@@ -36,7 +46,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import precision_recall_curve, average_precision_score, f1_score
 
 MODEL_DIR = "models"
-DATA_PATH = "data/machine_sensor_data.csv"
+# FIX: use the ENGINEERED dataset (matches what train_model.py actually
+# trained on), not the raw one -- the raw file is missing the 5 vibration
+# feature columns the saved model and feature_columns.json now expect.
+DATA_PATH = "data/machine_sensor_data_engineered.csv"
 
 THRESHOLDS_TO_REPORT = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
@@ -47,6 +60,11 @@ def rebuild_test_set():
     analysis evaluates on the real held-out test data, not a new split."""
     df = pd.read_csv(DATA_PATH)
 
+    # These 3 features are computed fresh here (matching train_model.py's
+    # own feature engineering) since they're cheap derived columns, not
+    # saved separately anywhere. The 5 vib_* columns, by contrast, come
+    # directly from the engineered CSV itself (vibration_features.py
+    # already computed and saved them -- no need to recompute).
     df["Temp_diff_K"] = df["Process_temperature_K"] - df["Air_temperature_K"]
     df["Power_W"] = df["Torque_Nm"] * (df["Rotational_speed_rpm"] * 2 * np.pi / 60)
     df["Wear_Torque_Product"] = df["Tool_wear_min"] * df["Torque_Nm"]
@@ -56,6 +74,14 @@ def rebuild_test_set():
 
     with open(f"{MODEL_DIR}/feature_columns.json") as f:
         feature_cols = json.load(f)
+
+    missing = set(feature_cols) - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"Engineered dataset is missing columns the saved model expects: {missing}. "
+            f"Check that vibration_features.py has been run and DATA_PATH points to "
+            f"its output (data/machine_sensor_data_engineered.csv)."
+        )
 
     X = df[feature_cols].values
     y = df["Machine_failure"].values
@@ -67,7 +93,7 @@ def rebuild_test_set():
 
 
 def main():
-    print("Rebuilding the original held-out test set...")
+    print("Rebuilding the original held-out test set (engineered dataset, matching train_model.py)...")
     X_test, y_test = rebuild_test_set()
     print(f"Test set: {len(X_test)} samples, {y_test.sum()} real failures ({y_test.mean():.1%})")
 

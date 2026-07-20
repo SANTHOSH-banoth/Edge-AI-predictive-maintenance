@@ -1,10 +1,14 @@
-"""
+﻿"""
 src/models/cnn_rul.py
 
 1D-CNN Remaining Useful Life (RUL) regression model for CMAPSS turbofan data.
 
 Same data pipeline as lstm_rul.py (loads the same .npy sequence windows) so
 the two models are directly comparable on the same train/val/test split logic.
+
+All hyperparameters/metrics/artifacts also logged to MLflow (experiment:
+"week2_deep_learning_rul") so this run is comparable side-by-side with
+the LSTM and every other model trained in this project.
 
 Usage:
     python src/models/cnn_rul.py
@@ -14,6 +18,7 @@ import os
 import numpy as np
 import torch
 import torch.nn as nn
+import mlflow
 from torch.utils.data import DataLoader, TensorDataset
 
 # ---------------------------------------------------------------------------
@@ -34,6 +39,8 @@ VAL_SPLIT = 0.15
 SEED = 42
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+MLFLOW_EXPERIMENT_NAME = "week2_deep_learning_rul"
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +84,7 @@ def make_train_val_loaders(X_train, y_train, units_train, val_split=VAL_SPLIT, b
 
     train_loader = DataLoader(TensorDataset(X_tr, y_tr), batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(TensorDataset(X_val, y_val), batch_size=batch_size, shuffle=False)
-    return train_loader, val_loader
+    return train_loader, val_loader, len(train_units), len(val_units)
 
 
 # ---------------------------------------------------------------------------
@@ -145,8 +152,10 @@ def train_model(model, train_loader, val_loader, num_epochs=NUM_EPOCHS,
     best_val_loss = float("inf")
     best_state = None
     epochs_no_improve = 0
+    epochs_run = 0
 
     for epoch in range(1, num_epochs + 1):
+        epochs_run = epoch
         model.train()
         train_losses = []
         for xb, yb in train_loader:
@@ -168,8 +177,16 @@ def train_model(model, train_loader, val_loader, num_epochs=NUM_EPOCHS,
         val_loss = np.mean(val_losses)
         scheduler.step(val_loss)
 
+        val_rmse = np.sqrt(val_loss)
         print(f"Epoch {epoch:3d}/{num_epochs} | train_MSE={train_loss:.3f} | val_MSE={val_loss:.3f} "
-              f"| val_RMSE={np.sqrt(val_loss):.3f}")
+              f"| val_RMSE={val_rmse:.3f}")
+
+        # ---- log per-epoch metrics so the MLflow UI shows a training curve ----
+        mlflow.log_metrics({
+            "train_mse": float(train_loss),
+            "val_mse": float(val_loss),
+            "val_rmse": float(val_rmse),
+        }, step=epoch)
 
         if val_loss < best_val_loss - 1e-4:
             best_val_loss = val_loss
@@ -183,7 +200,7 @@ def train_model(model, train_loader, val_loader, num_epochs=NUM_EPOCHS,
 
     if best_state is not None:
         model.load_state_dict(best_state)
-    return model
+    return model, epochs_run, float(best_val_loss)
 
 
 # ---------------------------------------------------------------------------
@@ -211,28 +228,66 @@ def main():
     torch.manual_seed(SEED)
     np.random.seed(SEED)
 
-    X_train, y_train, units_train, X_test, y_test = load_sequences()
-    n_features = X_train.shape[2]
+    mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 
-    train_loader, val_loader = make_train_val_loaders(X_train, y_train, units_train)
+    with mlflow.start_run(run_name="cnn_rul"):
 
-    model = CNNRegressor(n_features=n_features)
-    print(f"\nModel: {model}\n")
-    print(f"Training on device: {DEVICE}\n")
+        X_train, y_train, units_train, X_test, y_test = load_sequences()
+        n_features = X_train.shape[2]
 
-    model = train_model(model, train_loader, val_loader)
-    evaluate(model, X_test, y_test)
+        train_loader, val_loader, n_train_engines, n_val_engines = make_train_val_loaders(
+            X_train, y_train, units_train
+        )
 
-    os.makedirs(MODEL_OUT_DIR, exist_ok=True)
-    torch.save({
-        "model_state_dict": model.state_dict(),
-        "n_features": n_features,
-        "channels": NUM_CHANNELS,
-        "kernel_size": KERNEL_SIZE,
-        "dropout": DROPOUT,
-    }, MODEL_OUT_PATH)
-    print(f"\nModel saved to {MODEL_OUT_PATH}")
+        model = CNNRegressor(n_features=n_features)
+        print(f"\nModel: {model}\n")
+        print(f"Training on device: {DEVICE}\n")
+
+        # ---- log hyperparameters up front ----
+        mlflow.log_params({
+            "model_type": "1D-CNN",
+            "channels": str(NUM_CHANNELS),
+            "kernel_size": KERNEL_SIZE,
+            "dropout": DROPOUT,
+            "batch_size": BATCH_SIZE,
+            "max_epochs": NUM_EPOCHS,
+            "learning_rate": LEARNING_RATE,
+            "early_stop_patience": EARLY_STOP_PATIENCE,
+            "val_split": VAL_SPLIT,
+            "n_features": n_features,
+            "n_train_engines": n_train_engines,
+            "n_val_engines": n_val_engines,
+            "split_strategy": "engine-level (no window leakage)",
+            "device": str(DEVICE),
+            "seed": SEED,
+        })
+
+        model, epochs_run, best_val_loss = train_model(model, train_loader, val_loader)
+        preds, test_rmse, test_score = evaluate(model, X_test, y_test)
+
+        # ---- log final test metrics ----
+        mlflow.log_metrics({
+            "test_rmse": test_rmse,
+            "test_cmapss_score": test_score,
+            "best_val_mse": best_val_loss,
+            "epochs_run": epochs_run,
+        })
+
+        os.makedirs(MODEL_OUT_DIR, exist_ok=True)
+        torch.save({
+            "model_state_dict": model.state_dict(),
+            "n_features": n_features,
+            "channels": NUM_CHANNELS,
+            "kernel_size": KERNEL_SIZE,
+            "dropout": DROPOUT,
+        }, MODEL_OUT_PATH)
+        print(f"\nModel saved to {MODEL_OUT_PATH}")
+
+        # ---- log the saved model file as an MLflow artifact ----
+        mlflow.log_artifact(MODEL_OUT_PATH)
+        print(f"Run also logged to MLflow (experiment: {MLFLOW_EXPERIMENT_NAME})")
 
 
 if __name__ == "__main__":
     main()
+

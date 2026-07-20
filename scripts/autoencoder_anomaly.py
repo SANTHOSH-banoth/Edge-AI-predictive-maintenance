@@ -1,10 +1,10 @@
-"""
+﻿"""
 src/models/autoencoder_anomaly.py
 
 Unsupervised anomaly detection for CMAPSS turbofan sensors via a
 reconstruction-error autoencoder.
 
-Key idea: train ONLY on "healthy" windows (early-life engine data, far from
+Key idea: train ONLY on "healthy" windows (early-life engine data, farfrom
 failure), then measure reconstruction error on all data. Windows the model
 struggles to reconstruct are flagged as anomalous -- this can catch failure
 modes a supervised RUL/classifier model never saw labeled examples of.
@@ -17,7 +17,7 @@ degradation dominates the signal).
 FIX APPLIED #1 (train/val split leakage): the original make_train_val_loaders
 split healthy windows randomly by index. Since consecutive sliding windows
 overlap heavily, this leaked near-duplicate windows from the same engine
-into both train and val -- same bug as cnn_rul.py / lstm_rul.py. Fixed by
+into both train and val -- same bug as cnn_rul.py / lstm_rul.py. Fixedby
 splitting whole engines (via units_train.npy) into train/val first.
 
 FIX APPLIED #2 (threshold contamination): the original computed the anomaly
@@ -29,6 +29,10 @@ windows flagged" was largely checking training-set fit, not generalization.
 Fixed by computing both the threshold and the sanity-check flag rate using
 ONLY the held-out healthy VALIDATION windows (from engines never trained on).
 
+All hyperparameters/metrics/artifacts also logged to MLflow (experiment:
+"week2_deep_learning_rul") so this run is comparable side-by-side with
+the LSTM/CNN RUL models trained in this project.
+
 Usage:
     python src/models/autoencoder_anomaly.py
 """
@@ -37,6 +41,7 @@ import os
 import numpy as np
 import torch
 import torch.nn as nn
+import mlflow
 from torch.utils.data import DataLoader, TensorDataset
 
 # ---------------------------------------------------------------------------
@@ -65,6 +70,8 @@ SEED = 42
 ANOMALY_PERCENTILE = 95
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+MLFLOW_EXPERIMENT_NAME = "week2_deep_learning_rul"
 
 
 # ---------------------------------------------------------------------------
@@ -118,7 +125,7 @@ def make_train_val_loaders(X_healthy, units_healthy, val_split=VAL_SPLIT,
     # Autoencoder: input IS the target, so dataset just needs X twice.
     train_loader = DataLoader(TensorDataset(X_tr, X_tr), batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(TensorDataset(X_val, X_val), batch_size=batch_size, shuffle=False)
-    return train_loader, val_loader, X_healthy[val_mask]
+    return train_loader, val_loader, X_healthy[val_mask], len(train_units), len(val_units)
 
 
 # ---------------------------------------------------------------------------
@@ -181,8 +188,10 @@ def train_model(model, train_loader, val_loader, num_epochs=NUM_EPOCHS,
     best_val_loss = float("inf")
     best_state = None
     epochs_no_improve = 0
+    epochs_run = 0
 
     for epoch in range(1, num_epochs + 1):
+        epochs_run = epoch
         model.train()
         train_losses = []
         for xb, target in train_loader:
@@ -207,6 +216,12 @@ def train_model(model, train_loader, val_loader, num_epochs=NUM_EPOCHS,
 
         print(f"Epoch {epoch:3d}/{num_epochs} | train_recon_MSE={train_loss:.5f} | val_recon_MSE={val_loss:.5f}")
 
+        # ---- log per-epoch metrics so the MLflow UI shows a training curve ----
+        mlflow.log_metrics({
+            "train_recon_mse": float(train_loss),
+            "val_recon_mse": float(val_loss),
+        }, step=epoch)
+
         if val_loss < best_val_loss - 1e-6:
             best_val_loss = val_loss
             best_state = {k: v.clone() for k, v in model.state_dict().items()}
@@ -219,7 +234,7 @@ def train_model(model, train_loader, val_loader, num_epochs=NUM_EPOCHS,
 
     if best_state is not None:
         model.load_state_dict(best_state)
-    return model
+    return model, epochs_run, float(best_val_loss)
 
 
 # ---------------------------------------------------------------------------
@@ -229,57 +244,105 @@ def main():
     torch.manual_seed(SEED)
     np.random.seed(SEED)
 
-    X_train, y_train, units_train, X_test, y_test = load_sequences()
-    n_features = X_train.shape[2]
-    seq_len = X_train.shape[1]
+    mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 
-    X_healthy, units_healthy, X_degraded, threshold = split_healthy_vs_all(
-        X_train, y_train, units_train
-    )
-    train_loader, val_loader, X_healthy_val = make_train_val_loaders(X_healthy, units_healthy)
+    with mlflow.start_run(run_name="autoencoder_anomaly"):
 
-    model = LSTMAutoencoder(n_features=n_features, seq_len=seq_len)
-    print(f"\nModel: {model}\n")
-    print(f"Training on device: {DEVICE}\n")
+        X_train, y_train, units_train, X_test, y_test = load_sequences()
+        n_features = X_train.shape[2]
+        seq_len = X_train.shape[1]
 
-    model = train_model(model, train_loader, val_loader)
+        X_healthy, units_healthy, X_degraded, threshold = split_healthy_vs_all(
+            X_train, y_train, units_train
+        )
+        train_loader, val_loader, X_healthy_val, n_train_engines, n_val_engines = make_train_val_loaders(
+            X_healthy, units_healthy
+        )
 
-    # FIX APPLIED #2: establish the anomaly threshold using ONLY the
-    # held-out healthy VALIDATION windows (from engines never trained on),
-    # not the full X_healthy set which includes training data the model
-    # was directly optimized to reconstruct.
-    healthy_val_errors = reconstruction_error(model, X_healthy_val)
-    anomaly_threshold = np.percentile(healthy_val_errors, ANOMALY_PERCENTILE)
-    print(f"\nAnomaly score threshold ({ANOMALY_PERCENTILE}th pct of HELD-OUT healthy val errors): "
-          f"{anomaly_threshold:.5f}")
+        model = LSTMAutoencoder(n_features=n_features, seq_len=seq_len)
+        print(f"\nModel: {model}\n")
+        print(f"Training on device: {DEVICE}\n")
 
-    # Sanity check: degraded (near-failure) windows should show higher error
-    # and a higher flagged-anomaly rate than healthy validation windows.
-    degraded_errors = reconstruction_error(model, X_degraded)
-    test_errors = reconstruction_error(model, X_test)
+        # ---- log hyperparameters up front ----
+        mlflow.log_params({
+            "model_type": "LSTM-Autoencoder",
+            "healthy_rul_percentile": HEALTHY_RUL_PERCENTILE,
+            "latent_dim": LATENT_DIM,
+            "hidden_dim": HIDDEN_DIM,
+            "dropout": DROPOUT,
+            "batch_size": BATCH_SIZE,
+            "max_epochs": NUM_EPOCHS,
+            "learning_rate": LEARNING_RATE,
+            "early_stop_patience": EARLY_STOP_PATIENCE,
+            "val_split": VAL_SPLIT,
+            "anomaly_percentile": ANOMALY_PERCENTILE,
+            "n_features": n_features,
+            "seq_len": seq_len,
+            "n_train_engines": n_train_engines,
+            "n_val_engines": n_val_engines,
+            "split_strategy": "engine-level, healthy-only (no window/train leakage)",
+            "device": str(DEVICE),
+            "seed": SEED,
+        })
 
-    healthy_flag_rate = (healthy_val_errors > anomaly_threshold).mean()
-    degraded_flag_rate = (degraded_errors > anomaly_threshold).mean()
-    test_flag_rate = (test_errors > anomaly_threshold).mean()
+        model, epochs_run, best_val_loss = train_model(model, train_loader, val_loader)
 
-    print("\n=== Anomaly Detection Sanity Check (all on held-out data) ===")
-    print(f"Healthy VAL windows flagged anomalous: {healthy_flag_rate:.1%}  (expect ~{100 - ANOMALY_PERCENTILE}%)")
-    print(f"Degraded windows    flagged anomalous: {degraded_flag_rate:.1%}  (expect notably higher)")
-    print(f"Test windows        flagged anomalous: {test_flag_rate:.1%}")
+        # FIX APPLIED #2: establish the anomaly threshold using ONLY the
+        # held-out healthy VALIDATION windows (from engines never trained on),
+        # not the full X_healthy set which includes training data the model
+        # was directly optimized to reconstruct.
+        healthy_val_errors = reconstruction_error(model, X_healthy_val)
+        anomaly_threshold = np.percentile(healthy_val_errors, ANOMALY_PERCENTILE)
+        print(f"\nAnomaly score threshold ({ANOMALY_PERCENTILE}th pct of HELD-OUT healthy val errors): "
+              f"{anomaly_threshold:.5f}")
 
-    os.makedirs(MODEL_OUT_DIR, exist_ok=True)
-    torch.save({
-        "model_state_dict": model.state_dict(),
-        "n_features": n_features,
-        "seq_len": seq_len,
-        "hidden_dim": HIDDEN_DIM,
-        "latent_dim": LATENT_DIM,
-        "dropout": DROPOUT,
-        "healthy_rul_threshold": float(threshold),
-        "anomaly_error_threshold": float(anomaly_threshold),
-    }, MODEL_OUT_PATH)
-    print(f"\nModel + thresholds saved to {MODEL_OUT_PATH}")
+        # Sanity check: degraded (near-failure) windows should show highererror
+        # and a higher flagged-anomaly rate than healthy validation windows.
+        degraded_errors = reconstruction_error(model, X_degraded)
+        test_errors = reconstruction_error(model, X_test)
+
+        healthy_flag_rate = (healthy_val_errors > anomaly_threshold).mean()
+        degraded_flag_rate = (degraded_errors > anomaly_threshold).mean()
+        test_flag_rate = (test_errors > anomaly_threshold).mean()
+
+        print("\n=== Anomaly Detection Sanity Check (all on held-out data)===")
+        print(f"Healthy VAL windows flagged anomalous: {healthy_flag_rate:.1%}  (expect ~{100 - ANOMALY_PERCENTILE}%)")
+        print(f"Degraded windows    flagged anomalous: {degraded_flag_rate:.1%}  (expect notably higher)")
+        print(f"Test windows        flagged anomalous: {test_flag_rate:.1%}")
+
+        # ---- log final metrics, including the sanity-check flag rates --
+        # these are the numbers worth watching across future retrains: a
+        # healthy_flag_rate that drifts far from ~5% or a degraded_flag_rate
+        # that stops being notably higher than healthy both signal the
+        # anomaly detector has stopped discriminating well.
+        mlflow.log_metrics({
+            "best_val_recon_mse": best_val_loss,
+            "epochs_run": epochs_run,
+            "healthy_rul_threshold": float(threshold),
+            "anomaly_error_threshold": float(anomaly_threshold),
+            "healthy_val_flag_rate": float(healthy_flag_rate),
+            "degraded_flag_rate": float(degraded_flag_rate),
+            "test_flag_rate": float(test_flag_rate),
+        })
+
+        os.makedirs(MODEL_OUT_DIR, exist_ok=True)
+        torch.save({
+            "model_state_dict": model.state_dict(),
+            "n_features": n_features,
+            "seq_len": seq_len,
+            "hidden_dim": HIDDEN_DIM,
+            "latent_dim": LATENT_DIM,
+            "dropout": DROPOUT,
+            "healthy_rul_threshold": float(threshold),
+            "anomaly_error_threshold": float(anomaly_threshold),
+        }, MODEL_OUT_PATH)
+        print(f"\nModel + thresholds saved to {MODEL_OUT_PATH}")
+
+        # ---- log the saved model file as an MLflow artifact ----
+        mlflow.log_artifact(MODEL_OUT_PATH)
+        print(f"Run also logged to MLflow (experiment: {MLFLOW_EXPERIMENT_NAME})")
 
 
 if __name__ == "__main__":
     main()
+

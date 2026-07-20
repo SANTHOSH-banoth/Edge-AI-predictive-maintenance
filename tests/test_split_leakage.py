@@ -1,4 +1,4 @@
-"""
+﻿"""
 tests/test_split_leakage.py
 ------------------------------
 Permanent regression guard for the bug this project actually found and
@@ -20,6 +20,13 @@ against a bug that was real, that was found through actual investigation
 (a 4x val-vs-test RMSE gap), and that a random split would silently
 reintroduce with no error, no warning, just quietly-wrong validation
 numbers again.
+
+NOTE: cnn_rul.py / lstm_rul.py / autoencoder_anomaly.py's
+make_train_val_loaders() functions were later extended to also return
+engine counts (n_train_engines, n_val_engines) for MLflow logging. That's
+an additive change (more return values, same split logic underneath),
+so these tests just unpack the extra values -- the actual thing being
+tested (no window overlap between train and val) is unaffected.
 """
 
 import numpy as np
@@ -54,7 +61,7 @@ def _no_overlap_between_loaders(train_loader, val_loader):
     train_X = np.concatenate([xb.numpy() for xb, _ in train_loader], axis=0)
     val_X = np.concatenate([xb.numpy() for xb, _ in val_loader], axis=0)
 
-    # Flatten each window to a hashable signature for a fast set-based check.
+    # Flatten each window to a hashable signature for a fast set-basedcheck.
     train_signatures = {tuple(row.flatten()[:10]) for row in train_X}
     val_signatures = {tuple(row.flatten()[:10]) for row in val_X}
 
@@ -69,14 +76,18 @@ def _no_overlap_between_loaders(train_loader, val_loader):
 def test_cnn_rul_split_has_no_engine_overlap(synthetic_units_and_data):
     from cnn_rul import make_train_val_loaders
     X, y, units = synthetic_units_and_data
-    train_loader, val_loader = make_train_val_loaders(X, y, units, batch_size=256)
+    # Returns (train_loader, val_loader, n_train_engines, n_val_engines) --
+    # the two engine counts were added later for MLflow logging and aren't
+    # relevant to this test, so they're discarded with _.
+    train_loader, val_loader, _, _ = make_train_val_loaders(X, y, units, batch_size=256)
     _no_overlap_between_loaders(train_loader, val_loader)
 
 
 def test_lstm_rul_split_has_no_engine_overlap(synthetic_units_and_data):
     from lstm_rul import make_train_val_loaders
     X, y, units = synthetic_units_and_data
-    train_loader, val_loader = make_train_val_loaders(X, y, units, batch_size=256)
+    # Same additive signature change as cnn_rul.py -- see note above.
+    train_loader, val_loader, _, _ = make_train_val_loaders(X, y, units, batch_size=256)
     _no_overlap_between_loaders(train_loader, val_loader)
 
 
@@ -86,7 +97,10 @@ def test_autoencoder_split_has_no_engine_overlap(synthetic_units_and_data):
     # Autoencoder's function takes (X_healthy, units_healthy, ...) -- reuse
     # the full synthetic set as "healthy" for this structural test, since
     # the split logic itself doesn't depend on the healthy/degraded split.
-    train_loader, val_loader, _ = make_train_val_loaders(X, units, batch_size=256)
+    # Returns (train_loader, val_loader, X_healthy_val, n_train_engines,
+    # n_val_engines) -- the last two engine counts were added later for
+    # MLflow logging and aren't relevant to this test.
+    train_loader, val_loader, _, _, _ = make_train_val_loaders(X, units, batch_size=256)
     _no_overlap_between_loaders(train_loader, val_loader)
 
 
@@ -113,3 +127,4 @@ def test_cnn_rul_train_and_val_engine_sets_are_disjoint(synthetic_units_and_data
         "Train + val engine counts don't add up to the total -- some "
         "engines are being dropped or double-counted by the split."
     )
+

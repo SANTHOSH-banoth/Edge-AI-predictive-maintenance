@@ -1,4 +1,4 @@
-"""
+﻿"""
 src/models/lstm_rul.py
 
 LSTM-based Remaining Useful Life (RUL) regression model for CMAPSS turbofan data.
@@ -32,6 +32,10 @@ stopping was triggering on a leaky signal. This version splits by ENGINE
 (unit_number) instead, using units_train.npy (saved by build_sequences.py),
 so no engine's windows appear in both sets. Same fix applied to cnn_rul.py.
 
+All hyperparameters/metrics/artifacts also logged to MLflow (experiment:
+"week2_deep_learning_rul") so this run is comparable side-by-side with
+every other model trained in this project.
+
 Usage:
     python src/models/lstm_rul.py
 """
@@ -40,6 +44,7 @@ import os
 import numpy as np
 import torch
 import torch.nn as nn
+import mlflow
 from torch.utils.data import DataLoader, TensorDataset
 
 # ---------------------------------------------------------------------------
@@ -63,6 +68,8 @@ RUL_SCALE = 125.0        # must match RUL_CAP in build_sequences.py
 GRAD_CLIP_MAX_NORM = 1.0  # standard for LSTMs -- prevents exploding gradients
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+MLFLOW_EXPERIMENT_NAME = "week2_deep_learning_rul"
 
 
 # ---------------------------------------------------------------------------
@@ -101,7 +108,7 @@ def make_train_val_loaders(X_train, y_train, units_train, val_split=VAL_SPLIT,
           f"({train_mask.sum()} train windows, {val_mask.sum()} val windows)")
 
     X_tr = torch.tensor(X_train[train_mask], dtype=torch.float32)
-    # Target normalized to [0, 1] -- see FIX APPLIED #1 note at top of file
+    # Target normalized to [0, 1] -- see FIX APPLIED #1 note at top offile
     y_tr = torch.tensor(y_train[train_mask] / RUL_SCALE, dtype=torch.float32)
     X_val = torch.tensor(X_train[val_mask], dtype=torch.float32)
     y_val = torch.tensor(y_train[val_mask] / RUL_SCALE, dtype=torch.float32)
@@ -111,7 +118,7 @@ def make_train_val_loaders(X_train, y_train, units_train, val_split=VAL_SPLIT,
 
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
-    return train_loader, val_loader
+    return train_loader, val_loader, len(train_units), len(val_units)
 
 
 # ---------------------------------------------------------------------------
@@ -184,8 +191,10 @@ def train_model(model, train_loader, val_loader, num_epochs=NUM_EPOCHS,
     best_val_loss = float("inf")
     best_state = None
     epochs_no_improve = 0
+    epochs_run = 0
 
     for epoch in range(1, num_epochs + 1):
+        epochs_run = epoch
         model.train()
         train_losses = []
         for xb, yb in train_loader:
@@ -212,10 +221,18 @@ def train_model(model, train_loader, val_loader, num_epochs=NUM_EPOCHS,
         val_loss = np.mean(val_losses)
         scheduler.step(val_loss)
 
-        # RMSE printed here is in normalized [0,1] units * RUL_SCALE = real cycles,
-        # so it's directly comparable to the CNN's printed RMSE during training.
+        # RMSE printed here is in normalized [0,1] units * RUL_SCALE =real cycles,
+        # so it's directly comparable to the CNN's printed RMSE duringtraining.
+        val_rmse_cycles = np.sqrt(val_loss) * RUL_SCALE
         print(f"Epoch {epoch:3d}/{num_epochs} | train_MSE={train_loss:.5f} | val_MSE={val_loss:.5f} "
-              f"| val_RMSE(cycles)={np.sqrt(val_loss) * RUL_SCALE:.3f}")
+              f"| val_RMSE(cycles)={val_rmse_cycles:.3f}")
+
+        # ---- log per-epoch metrics so the MLflow UI shows a training curve ----
+        mlflow.log_metrics({
+            "train_mse": float(train_loss),
+            "val_mse": float(val_loss),
+            "val_rmse_cycles": float(val_rmse_cycles),
+        }, step=epoch)
 
         if val_loss < best_val_loss - 1e-6:
             best_val_loss = val_loss
@@ -229,7 +246,7 @@ def train_model(model, train_loader, val_loader, num_epochs=NUM_EPOCHS,
 
     if best_state is not None:
         model.load_state_dict(best_state)
-    return model
+    return model, epochs_run, float(best_val_loss)
 
 
 # ---------------------------------------------------------------------------
@@ -260,29 +277,69 @@ def main():
     torch.manual_seed(SEED)
     np.random.seed(SEED)
 
-    X_train, y_train, units_train, X_test, y_test = load_sequences()
-    n_features = X_train.shape[2]
+    mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 
-    train_loader, val_loader = make_train_val_loaders(X_train, y_train, units_train)
+    with mlflow.start_run(run_name="lstm_rul"):
 
-    model = LSTMRegressor(n_features=n_features)
-    print(f"\nModel: {model}\n")
-    print(f"Training on device: {DEVICE}\n")
+        X_train, y_train, units_train, X_test, y_test = load_sequences()
+        n_features = X_train.shape[2]
 
-    model = train_model(model, train_loader, val_loader)
-    evaluate(model, X_test, y_test)
+        train_loader, val_loader, n_train_engines, n_val_engines = make_train_val_loaders(
+            X_train, y_train, units_train
+        )
 
-    os.makedirs(MODEL_OUT_DIR, exist_ok=True)
-    torch.save({
-        "model_state_dict": model.state_dict(),
-        "n_features": n_features,
-        "hidden_size": HIDDEN_SIZE,
-        "num_layers": NUM_LAYERS,
-        "dropout": DROPOUT,
-        "rul_scale": RUL_SCALE,
-    }, MODEL_OUT_PATH)
-    print(f"\nModel saved to {MODEL_OUT_PATH}")
+        model = LSTMRegressor(n_features=n_features)
+        print(f"\nModel: {model}\n")
+        print(f"Training on device: {DEVICE}\n")
+
+        # ---- log hyperparameters up front ----
+        mlflow.log_params({
+            "model_type": "LSTM",
+            "hidden_size": HIDDEN_SIZE,
+            "num_layers": NUM_LAYERS,
+            "dropout": DROPOUT,
+            "batch_size": BATCH_SIZE,
+            "max_epochs": NUM_EPOCHS,
+            "learning_rate": LEARNING_RATE,
+            "early_stop_patience": EARLY_STOP_PATIENCE,
+            "val_split": VAL_SPLIT,
+            "rul_scale": RUL_SCALE,
+            "grad_clip_max_norm": GRAD_CLIP_MAX_NORM,
+            "n_features": n_features,
+            "n_train_engines": n_train_engines,
+            "n_val_engines": n_val_engines,
+            "split_strategy": "engine-level (no window leakage)",
+            "device": str(DEVICE),
+            "seed": SEED,
+        })
+
+        model, epochs_run, best_val_loss = train_model(model, train_loader, val_loader)
+        preds, test_rmse, test_score = evaluate(model, X_test, y_test)
+
+        # ---- log final test metrics ----
+        mlflow.log_metrics({
+            "test_rmse": test_rmse,
+            "test_cmapss_score": test_score,
+            "best_val_mse": best_val_loss,
+            "epochs_run": epochs_run,
+        })
+
+        os.makedirs(MODEL_OUT_DIR, exist_ok=True)
+        torch.save({
+            "model_state_dict": model.state_dict(),
+            "n_features": n_features,
+            "hidden_size": HIDDEN_SIZE,
+            "num_layers": NUM_LAYERS,
+            "dropout": DROPOUT,
+            "rul_scale": RUL_SCALE,
+        }, MODEL_OUT_PATH)
+        print(f"\nModel saved to {MODEL_OUT_PATH}")
+
+        # ---- log the saved model file as an MLflow artifact ----
+        mlflow.log_artifact(MODEL_OUT_PATH)
+        print(f"Run also logged to MLflow (experiment: {MLFLOW_EXPERIMENT_NAME})")
 
 
 if __name__ == "__main__":
     main()
+
