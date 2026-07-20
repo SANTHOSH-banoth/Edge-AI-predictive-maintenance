@@ -1,0 +1,70 @@
+﻿name: CI
+
+# Runs on every push and pull request targeting main. Two independent
+# jobs: one runs the pytest suite (fast, catches logic regressions --
+# this is what caught the make_train_val_loaders signature mismatch
+# during development), the other verifies the Dockerfile still builds
+# cleanly (catches dependency/environment drift before it reaches a
+# deployment). Both must pass for the workflow to succeed.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Run test suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          # Caches pip downloads between runs using requirements.txt's
+          # hash as the cache key -- speeds up repeated CI runs
+          # significantly once the dependency set stabilizes.
+          cache: "pip"
+
+      - name: Install PyTorch (CPU build)
+        # Same reasoning as the Dockerfile: the project was developed
+        # against a CPU-only torch build, installed from PyTorch's
+        # dedicated CPU wheel index rather than default PyPI.
+        run: |
+          pip install --no-cache-dir torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install remaining dependencies
+        run: |
+          pip install --no-cache-dir -r requirements.txt
+
+      - name: Run pytest suite
+        run: |
+          python -m pytest tests/ -v
+
+  docker-build:
+    name: Verify Docker image builds
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (verifies the Dockerfile builds against current deps/code; no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: edge-ai-pm-api:ci-check
+          # Cache layers between CI runs the same way local Docker
+          # Desktop does, so repeated runs aren't paying the full
+          # torch/xgboost download cost every single time.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+

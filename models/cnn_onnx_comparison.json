@@ -1,0 +1,17 @@
+{
+  "native_pytorch": {
+    "size_kb": 142.0,
+    "latency_ms": 3.189,
+    "rmse": 18.063,
+    "mae": 13.534,
+    "cmapss_score": 649.7
+  },
+  "onnx_runtime": {
+    "size_kb": 134.2,
+    "latency_ms": 0.684,
+    "rmse": 18.063,
+    "mae": 13.534,
+    "cmapss_score": 649.7
+  },
+  "max_prediction_diff": 0.00011444091796875
+}

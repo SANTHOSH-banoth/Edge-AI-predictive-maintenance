@@ -1,0 +1,27 @@
+﻿venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+.github/
+mlruns/
+mlflow.db
+tests/
+docs/
+notebooks/
+*.log
+*.txt.bak
+
+# Raw/intermediate data not needed to SERVE predictions (only the
+# pre-built sequence arrays under data/cmapss/sequences/ are copied in
+# by the Dockerfile, via an explicit COPY -- everything else here stays
+# out of the image entirely).
+data/cmapss/processed/
+data/cmapss/*.txt
+data/machine_sensor_data.csv
+data/machine_sensor_data_engineered.csv
+
+# Model checkpoints not used at serve time (training-only artifacts) --
+# keep this list in sync with what api_server.py actually loads.
+models/*.log
+

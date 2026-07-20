@@ -1,8 +1,41 @@
-pandas>=2.0
-numpy>=1.26
-scikit-learn>=1.4
-joblib>=1.3
-imbalanced-learn>=0.12
-onnx>=1.15
-onnxruntime>=1.17
-skl2onnx>=1.16
+﻿# Core data/ML
+pandas==2.3.3
+numpy==2.4.6
+scikit-learn==1.9.0
+scipy==1.18.0
+joblib==1.5.3
+imbalanced-learn==0.14.2
+# NOTE: xgboost is intentionally NOT listed here -- it's installed
+# separately in the Dockerfile with --no-deps, to avoid pulling in
+# nvidia-nccl-cu12 (a GPU-only NCCL library, several hundred MB) which
+# xgboost 3.3.0 lists as a dependency even though it's irrelevant for
+# CPU-only inference. Its actual runtime needs (numpy, scipy) are
+# already covered by the packages above. For local/non-Docker use,
+# install it normally: pip install xgboost==3.3.0
+optuna==4.9.0
+shap==0.52.0
+PyWavelets==1.9.0
+
+# Deep learning (CPU build -- see Dockerfile for the correct install index)
+torch==2.13.0
+
+# ONNX export / runtime / quantization
+onnx==1.22.0
+onnxruntime==1.27.0
+skl2onnx==1.20.0
+onnxmltools==1.16.0
+
+# API serving
+fastapi==0.139.2
+uvicorn==0.51.0
+pydantic==2.13.4
+
+# Experiment tracking
+mlflow==3.14.0
+
+# Testing
+pytest==9.1.1
+
+# Plotting (SHAP plots, model comparison charts)
+matplotlib==3.11.0
+
