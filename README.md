@@ -1,344 +1,246 @@
 # Edge-AI Predictive Maintenance System
 
-An end-to-end predictive maintenance pipeline with two parts that build on
-each other:
+An end-to-end predictive maintenance pipeline built for the kind of decision
+industrial teams actually need to make: *not just "will this machine fail,"
+but "which model should make that call given this device's constraints, how
+much do we trust it, and what should we do right now."*
 
-1. **A cloud-vs-edge failure classifier** (AI4I-style sensor data) that
-   demonstrates the core edge-AI trade-off: a ~1,300x smaller model for a
-   few points of recall.
-2. **A fleet-wide Remaining Useful Life (RUL) + anomaly detection pipeline**
-   on NASA's CMAPSS turbofan degradation dataset, combining an autoencoder
-   anomaly detector with an LSTM RUL regressor into a single alert-priority
-   decision layer, exported to ONNX for edge inference.
+Two real-world tasks are covered:
+- **Turbofan engine Remaining Useful Life (RUL) prediction** — NASA CMAPSS
+  dataset, the primary focus of this project (Weeks 2–9 below).
+- **CNC tool-wear failure classification** — AI4I dataset, an earlier
+  exploration (Week 1) kept in the repo as the source of the edge/cloud
+  model-selector pattern later reused for the RUL models.
 
-A live dashboard (`dashboard/dashboard.html`) visualizes a simulated
-machine's full lifecycle running through the deployed edge model in real
-time.
+**Live demo:** [edge-ai-predictive-maintenance.onrender.com](https://edge-ai-predictive-maintenance.onrender.com)
+(hosted on Render's free tier — see [Known Limitations](#known-limitations)
+for what that means for first-request latency)
 
----
-
-## 1. Why this project exists
-
-Factories run rotating machinery (motors, pumps, compressors, turbofans)
-that fails unpredictably. Two common but flawed strategies:
-
-- **Reactive maintenance** — fix it after it breaks → unplanned downtime.
-- **Scheduled maintenance** — replace parts on a calendar regardless of
-  condition → wasted parts and labor.
-
-**Predictive maintenance** uses live sensor data to flag failure risk
-*before* it happens. The **edge** part matters because streaming every
-sensor reading to the cloud for inference is slow, bandwidth-heavy, and
-breaks on poor plant connectivity — so the model needs to be small and fast
-enough to run right next to the machine.
+**Live dashboard:** open `dashboard/rul_monitor.html` locally, or visit it and
+point the API base field at the URL above.
 
 ---
 
-## 2. Part A — Cloud vs. Edge failure classifier
+## Why this exists
 
-**Data:** `data/machine_sensor_data.csv` — 10,000 synthetic samples
-matching the structure of the AI4I 2020 Predictive Maintenance dataset.
-Each row: `Type`, `Air_temperature_K`, `Process_temperature_K`,
-`Rotational_speed_rpm`, `Torque_Nm`, `Tool_wear_min` → binary
-`Machine_failure` label. Failure rate is realistically imbalanced at 8.6%.
+Most "ML for predictive maintenance" portfolio projects stop at a notebook
+with an RMSE number. This one is built around the questions a real
+industrial deployment actually has to answer:
 
-**Pipeline:**
+1. **Which model, on which device?** A cloud gateway and a constrained edge
+   sensor node don't want the same model — see [Model Selection](#model-selection--ensembling).
+2. **Does the model fail gracefully or catastrophically** when sensors drift,
+   go noisy, or drop out? — see [Drift & Robustness](#drift-monitoring--robustness).
+3. **What does a prediction actually cost the business** if it's acted on,
+   or ignored? — see [Cost-Based Maintenance Decisions](#cost-based-maintenance-decisions).
+4. **Where does it actually fail**, and is that failure mode dangerous
+   (predicting more life than an asset really has) or just imprecise? —
+   see [Error Analysis](#error-analysis-by-rul-bucket).
+
+Every claim below is backed by a script you can re-run against the real
+held-out CMAPSS test engines — nothing here is asserted without the number
+next to it.
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Data["Data & Feature Engineering"]
+        A[Raw CMAPSS sensor logs] --> B[signal_features.py<br/>FFT / wavelets / rolling stats<br/>thermal stress + fatigue integral]
+    end
+
+    subgraph Models["Model Layer"]
+        B --> C[XGBoost + Optuna]
+        B --> D[LSTM regressor]
+        B --> E[1D-CNN regressor]
+        B --> F[LSTM Autoencoder<br/>anomaly detection]
+    end
+
+    subgraph Selection["Selection & Decisioning"]
+        C & D & E --> G[model_selector.py<br/>cloud / edge / realtime]
+        C & D & E --> H[ensemble.py<br/>stacked / weighted]
+        D & F --> I[predict.py<br/>RUL + anomaly pipeline]
+        I --> J[maintenance_decision.py<br/>cost-based action]
+    end
+
+    subgraph Serving["Serving & Monitoring"]
+        I --> K[FastAPI api_server.py]
+        K --> L[Docker + CI]
+        K --> M[Render deployment]
+        M --> N[rul_monitor.html<br/>live dashboard]
+        C & D & E --> O[drift_monitor.py<br/>robustness_test.py<br/>error_analysis.py]
+    end
 ```
-generate_data.py → train_model.py → simulate_edge_stream.py → dashboard.html
- (synthetic data)   (train+export)    (live inference sim)     (visualize)
-```
 
-- `scripts/train_model.py` engineers physics-informed features
-  (`Temp_diff`, `Power`, `Wear_Torque_Product`), fixes class imbalance with
-  SMOTE on the training set only, trains a cloud RandomForest and a compact
-  edge MLP (16→8), and exports the edge model to ONNX.
-- `scripts/simulate_edge_stream.py` replays one machine's simulated
-  lifecycle (healthy → degrading → high wear) through the deployed
-  `edge_model.onnx` via `onnxruntime`, exactly as an edge gateway would,
-  and writes `dashboard/stream_data.json`.
-- `dashboard/dashboard.html` — a scrubbable, real-time-style monitor
-  reading that stream: failure-probability curve, alert markers, and live
-  sensor traces at any timestep. Serve it locally (browsers block local
-  JSON fetches over `file://`):
-  ```powershell
-  cd dashboard
-  python -m http.server 8000
-  # open http://localhost:8000/dashboard.html
-  ```
+---
 
-### Results — Cloud vs. Edge
+## Results across all models (real held-out CMAPSS test set, 100 engines)
 
-| | Cloud (RandomForest) | Edge (MLP, sklearn) | Edge (MLP, ONNX Runtime) |
+| Model | RMSE | CMAPSS Score* | Size (ONNX) | Single-row latency |
+|---|---|---|---|---|
+| XGBoost (Optuna-tuned) | 13.993 | 320.4 | 744.0 KB | 0.028 ms |
+| LSTM | **12.803** | **267.0** | 218.3 KB | 0.457 ms |
+| 1D-CNN | 18.063 | 649.7 | 134.2 KB | 0.684 ms |
+| Ensemble (stacked, Ridge meta-learner) | 12.834 | — | — | — |
+
+\* Lower is better on both metrics. The CMAPSS score asymmetrically
+penalizes late (optimistic) predictions far more than early ones, since
+underestimating remaining life is the operationally dangerous error.
+
+**LSTM is the best single model here, and no ensemble beats it** — the
+stacked meta-learner independently assigned the CNN a weight of exactly
+0.0 and put ~68% of its weight on the LSTM, effectively re-discovering
+"don't bother ensembling" through optimization rather than a hand-tuned
+rule. That's reported here as the honest result rather than forced into
+a positive story. See `models/week8_ensemble_comparison.csv`.
+
+### AI4I tool-wear classifier (separate task, Week 1)
+
+| Deployment target | Model | F1 | Size |
 |---|---|---|---|
-| Model size | 3,523.7 KB | 15.7 KB | **2.71 KB** |
-| Accuracy | 95.5% | 93.5% | — |
-| Precision | 65.8% | 57.6% | — |
-| Recall | 98.3% | 93.0% | — |
-| ROC-AUC | 0.976 | 0.970 | — |
-| Avg. latency / sample | 0.0245 ms | 0.00034 ms | 0.0253 ms |
-
-**Headline: ~99.9% smaller (≈1,300x) than the cloud model, for a
-~5-point recall trade-off.** That's the edge-AI pitch — give up a little
-accuracy to run inference locally, in real time, without a cloud
-round-trip. Note the ONNX Runtime version is not faster in wall-clock terms
-than raw sklearn on this laptop (single-sample calls have fixed runtime
-overhead); its value is portability — the same `.onnx` file runs on
-`onnxruntime` across edge gateways, mobile, and embedded targets without
-shipping the full Python/sklearn stack.
-
-### Decision threshold analysis (edge MLP)
-
-Swept the classification threshold from 0.1–0.9 on the real held-out test
-set (2,000 samples, 172 real failures) to make the recall/precision
-trade-off explicit rather than assumed:
-
-| Threshold | Precision | Recall | F1 | Missed failures | False alarms |
-|---|---|---|---|---|---|
-| 0.1 | 0.399 | 0.988 | 0.569 | 2 | 256 |
-| 0.2 | 0.467 | 0.983 | 0.633 | 3 | 193 |
-| **0.3** | **0.508** | **0.971** | **0.667** | **5** | **162** |
-| 0.4 | 0.539 | 0.959 | 0.690 | 7 | 141 |
-| 0.5 (default) | 0.576 | 0.930 | 0.711 | 12 | 118 |
-| 0.6 | 0.598 | 0.901 | 0.719 | 17 | 104 |
-| 0.7 | 0.627 | 0.890 | 0.736 | 19 | 91 |
-| 0.8 | 0.670 | 0.814 | 0.735 | 32 | 69 |
-| 0.9 | 0.699 | 0.703 | 0.701 | 51 | 52 |
-
-Average precision (area under PR curve): **0.739**.
-
-**Recommendation: threshold 0.3 over the sklearn default of 0.5.** It
-catches 7 more real failures at the cost of 44 more false alarms — a
-reasonable trade given a missed failure (unplanned downtime) is far more
-expensive than an unnecessary inspection. Full sweep saved to
-`models/precision_recall_thresholds.csv`.
+| Cloud | RandomForest (200 trees) | 0.777 | ~3.9 MB |
+| Edge | MLP (16, 8) via ONNX Runtime | 0.710 | ~18 KB (~220x smaller) |
 
 ---
 
-## 3. Part B — CMAPSS RUL prediction + anomaly detection
+## Model Selection & Ensembling
 
-**Data:** NASA's CMAPSS turbofan degradation dataset
-(`data/cmapss/`) — multiple engines run from healthy to failure across
-several operating conditions and fault modes, with 21+ sensor channels per
-cycle. `scripts/load_cmapss.py` and `scripts/build_sequences.py` process
-the raw `train_FD00X.txt` / `test_FD00X.txt` files into fixed-length
-sliding-window sequences (`data/cmapss/sequences/`, shape `[engines, 30
-timesteps, 18 features]`) for the sequence models.
+`scripts/model_selector.py` picks the right model for the deployment
+constraint rather than assuming one model wins everywhere:
 
-**Three models, one decision layer:**
-
-| Model | Role | Script |
+| Constraint | Winner | Why |
 |---|---|---|
-| Autoencoder | Unsupervised anomaly detector — flags sensor patterns unlike anything in the healthy training data | `scripts/autoencoder_anomaly.py` |
-| LSTM | Best-performing RUL (Remaining Useful Life) regressor | `scripts/lstm_rul.py` |
-| XGBoost | RUL regression baseline for comparison | `scripts/train_xgboost.py` |
-| CNN | Additional RUL architecture explored for comparison | `scripts/cnn_rul.py` |
+| Cloud (accuracy matters most) | LSTM | Best RMSE/CMAPSS score |
+| Edge (footprint matters most) | 1D-CNN | Smallest ONNX file |
+| Real-time (latency matters most) | XGBoost | Fastest single-row inference |
 
-`scripts/predict.py` is the unified fleet pipeline: run every held-out
-engine through the anomaly detector *and* the RUL model, then combine both
-signals into one alert level per engine (`HEALTHY` / `WATCH` / `URGENT` /
-`WARNING`, where `WARNING` = anomaly and low-RUL agree). On the 100-engine
-held-out CMAPSS test set:
+All three constraints pick a **different** model — a concrete demonstration
+that "best model" is meaningless without a deployment context attached.
 
-```
-alert_level
-HEALTHY    66
-WATCH      18
-URGENT     13
-WARNING     3
-```
+## Drift Monitoring & Robustness
 
-Full per-engine report saved to `models/fleet_prediction_report.csv`.
+`scripts/drift_monitor.py`, `scripts/error_analysis.py`, `scripts/robustness_test.py`
 
-### RUL model comparison (CMAPSS test set)
+- **Train-vs-test drift check**: nearly every sensor shows statistically
+  significant PSI/KS drift between train and test distributions. This is
+  **not sensor decay** — it's the CMAPSS protocol itself: training engines
+  run to failure, test engines are truncated earlier in life, so the test
+  set systematically under-represents late-life degradation. A synthetic
+  calibration-decay injection (`simulate_calibration_decay`) confirms the
+  detector correctly distinguishes this from *real* drift when it occurs
+  (PSI 5–10 vs. the train/test baseline's 0.2–0.5).
+- **Noise robustness**: degrades gracefully — RMSE stays roughly flat until
+  noise reaches 25% of each sensor's std, then climbs steadily. No cliff.
+- **Missing-data robustness**: the standout finding. At a realistic 5%
+  sensor dropout rate, **zero-imputation increases RMSE by 31.6%** — worse
+  than 25% proportional noise. Switching to **per-feature median imputation
+  roughly halves that penalty (16.1%)**, demonstrating that imputation
+  strategy is a real, measurable lever for deployment robustness — not
+  just model architecture. See `models/week7_missing_robustness.csv`.
 
-| Model | Format | Size | Single-row latency | Test RMSE | CMAPSS score |
-|---|---|---|---|---|---|
-| XGBoost | Native | 1,498.1 KB | 2.934 ms | 14.09 | — |
-| XGBoost | ONNX fp32 | 804.6 KB | 0.039 ms | 14.09 | — |
-| XGBoost | ONNX int8 (quantized) | 804.7 KB | 0.049 ms | 14.09 | — |
-| LSTM | Native PyTorch | 218.4 KB | 1.273 ms | 12.80 | 267.0 |
-| **LSTM** | **ONNX fp32** | **218.3 KB** | **0.457 ms** | **12.80** | **267.0** |
-| LSTM | ONNX int8 (quantized) | 63.98 KB | 0.153 ms | 12.85 | 271.2 |
+## Error Analysis by RUL Bucket
 
-**LSTM was selected as the deployed model** — lower RMSE than XGBoost, and
-the ONNX export is ~6x faster than the native PyTorch version with
-identical predictions (max prediction diff between native and ONNX:
-7.6e-05). Int8 quantization shrinks it a further ~3.4x (218 KB → 64 KB)
-for a marginal RMSE cost (12.80 → 12.85) — a reasonable trade if the
-deployment target is memory-constrained, though the current pipeline ships
-the fp32 ONNX version since size wasn't the binding constraint.
+`scripts/error_analysis.py` breaks error down by how close an engine
+actually is to failure, not just aggregate RMSE:
 
-XGBoost's ONNX conversion, by contrast, gained most of its latency win from
-format alone (2.934 ms → 0.039 ms) with quantization adding no further
-benefit — expected, since int8 quantization targets neural-net-style
-matrix multiplies, not tree ensembles.
+| True RUL bucket | RMSE | Mean bias | % dangerously late |
+|---|---|---|---|
+| 0–15 (near failure) | 2.99 | **−0.72** (conservative) | 11.1% |
+| 15–30 | 8.31 | +4.00 (optimistic) | 50.0% |
+| 30–60 | 9.14 | +4.12 (optimistic) | 42.9% |
+| 60–100 | 18.50 | +7.10 (optimistic) | 51.9% |
+| 100+ | 15.32 | −7.00 (conservative) | 17.6% |
 
-### Edge deployment validation (XGBoost ONNX fp32)
+The model is **most cautious exactly when it matters most** — near true
+end-of-life, its bias flips conservative — but is measurably overconfident
+in the mid-life range. That's a genuine, specific insight, not a
+restated RMSE.
 
-Measured with `scripts/edge_deployment_validation.py`:
+## Cost-Based Maintenance Decisions
 
-| Metric | Value |
-|---|---|
-| Process memory | 65.9 MB |
-| Mean latency | 0.0426 ms |
-| p95 latency | 0.0551 ms |
-| p99 latency | 0.2676 ms |
-| Throughput | 129,939 rows/sec |
+`scripts/maintenance_decision.py` translates predicted RUL into an actual
+recommendation (IMMEDIATE / SOON / MONITOR / OK) and estimates cost vs. a
+reactive run-to-failure baseline. On the 100 real test engines using the
+LSTM's predictions: **~$1.61M estimated savings, zero missed failures.**
 
-### Resource-constrained hardware proxy
+> **Note on these figures:** the underlying costs ($50,000 unplanned
+> failure, $5,000 planned maintenance, $40/cycle early-maintenance waste)
+> are illustrative placeholders chosen to demonstrate the decision logic,
+> not sourced from a real maintenance contract. The *savings estimate*
+> should be read as "this is the shape of the argument," not a validated
+> business number. In a real deployment these would be calibrated against
+> actual downtime/parts/labor costs for the asset in question.
 
-No Raspberry Pi or other embedded device was available for this project
-(see [Limitations](#5-limitations)). As a partial substitute,
-`scripts/benchmark_constrained.py` restricts ONNX Runtime to a single CPU
-thread and compares it against the default (all-cores) run — this
-approximates, but does not replicate, inference on a resource-constrained
-device:
+## Live Deployment
 
-```
-Default (all cores available):            0.352 ms
-Single-thread (constrained-device proxy): 0.400 ms
-Slowdown factor: 1.14x
-```
-
-Latency holds up well even single-threaded, suggesting the model doesn't
-lean heavily on multi-core parallelism — a good sign for deployment on
-constrained hardware, though this is explicitly a same-CPU proxy, not a
-real embedded-device benchmark.
-
-### Alert-rate sanity check
-
-Before trusting the fleet pipeline, verified that `predict.py`'s alerts
-behave sensibly rather than firing at random. Ran a single simulated
-machine lifecycle (`simulate_edge_stream.py`, 120 timesteps, healthy →
-end-of-life) through the deployed edge model and checked *where* alerts
-land:
-
-```
-Total alerts: 30 / 120
-First alert at t = 30
-Last healthy reading at t = 115
-```
-
-Alerts are sparse and scattered early (t=30, 36, 61, 70–83…) and become
-solidly clustered late (15 of the last 19 timesteps, t=101–119) — the
-expected shape for a genuine wear-out trajectory, not a miscalibrated
-model. Note this run's ~25% overall alert rate is *not* comparable to the
-dataset's population-wide 8.6% failure rate: one is "fraction of one
-machine's simulated life spent near end-of-life," the other is "fraction
-of all machines that ever fail" — they measure different things and
-aren't expected to match. Visualized in `dashboard/dashboard.html`.
+- **API**: FastAPI service (`scripts/api_server.py`), containerized
+  (`Dockerfile`), deployed to Render's free tier.
+- **Dashboard**: `dashboard/rul_monitor.html` polls `/demo/engine/{id}` live,
+  rendering an RUL gauge, anomaly flag (from the LSTM autoencoder), and the
+  cost estimator above, computed from the live prediction only.
+- **CI**: GitHub Actions runs the pytest suite (13/13 passing) and a Docker
+  build on every push.
 
 ---
 
-## 4. Testing
+## Known Limitations
 
-`tests/` covers feature engineering correctness, alert-decision logic, and
-(critically) that the train/test split doesn't leak information across
-engine lifecycles:
+Documented deliberately, rather than glossed over:
 
-```powershell
-pytest tests/
-```
-
-- `test_feature_engineering.py` — engineered features compute correctly
-- `test_alert_logic.py` — alert-level decision rules (anomaly + RUL →
-  HEALTHY/WATCH/URGENT/WARNING) behave as specified
-- `test_split_leakage.py` — no engine appears in both train and test
-  sequences
-
----
-
-## 5. Limitations
-
-- **No real edge hardware was tested.** All "edge" latency numbers are
-  measured on a laptop CPU via ONNX Runtime, with a single-thread run as a
-  rough proxy for a constrained device (see above). A real embedded
-  benchmark (Raspberry Pi, ESP32, industrial PC) would be the natural next
-  step and the main gap between this project and a production deployment.
-- **The dashboard replays one simulated lifecycle**, not a live sensor
-  feed — there's no real-time ingestion, alerting service, or persistence
-  layer behind it.
-- **No drift monitoring.** Sensor distributions shift over time in real
-  deployments; this pipeline doesn't detect or retrain against that.
+- **No physical edge hardware was tested.** `benchmark_constrained.py`
+  restricts ONNX Runtime to a single CPU thread as a *proxy* for a
+  constrained device — it does not replicate real embedded hardware
+  (different architecture, clock speed, memory bandwidth, cache behavior).
+  A Raspberry Pi test remains a documented stretch goal, not a claim made.
+- **Quantization does not meaningfully help every model.** INT8
+  quantization gave XGBoost no measurable size/latency benefit (tree
+  ensembles don't have the matmul-heavy structure that quantization
+  accelerates) and a small accuracy cost on the LSTM. Reported honestly
+  rather than assumed to help across the board.
+- **Ensembling does not beat the best single model here.** See
+  [Results](#results-across-all-models-real-held-out-cmapss-test-set-100-engines) above.
+- **Cost figures in the maintenance decision layer are illustrative**, not
+  sourced — see the note above.
+- **CORS is currently wide open** (`allow_origins=["*"]`) on the deployed
+  API for demo convenience. A production deployment would restrict this to
+  specific trusted origins.
+- **Render's free tier spins down after 15 minutes of inactivity.** The
+  first request after idle time can take 30–60 seconds (cold start) before
+  the API responds — this is expected free-tier behavior, not a bug.
+- **The AI4I classifier and CMAPSS RUL models are separate tasks/datasets**,
+  kept in one repo because Week 1's edge/cloud model-selector pattern
+  directly informed the approach used later for the RUL models. They are
+  not part of the same pipeline.
 
 ---
 
-## 6. Repo structure
+## Repository Structure
 
 ```
-edge_ai_pm_project/
-├── data/
-│   ├── machine_sensor_data.csv        # AI4I-style classifier dataset
-│   └── cmapss/                        # NASA CMAPSS turbofan dataset
-│       ├── train_FD00X.txt, test_FD00X.txt, RUL_FD00X.txt
-│       ├── processed/                 # cleaned + feature-engineered CSVs
-│       └── sequences/                 # windowed sequences for LSTM/CNN
-├── scripts/
-│   ├── generate_data.py               # AI4I-style synthetic data generator
-│   ├── train_model.py                 # cloud RF + edge MLP, ONNX export
-│   ├── simulate_edge_stream.py        # live inference simulation → dashboard feed
-│   ├── precision_recall_analysis.py   # threshold sweep for edge MLP
-│   ├── benchmark_constrained.py       # single-thread latency proxy
-│   ├── load_cmapss.py, build_sequences.py, signal_features.py
-│   ├── train_xgboost.py, lstm_rul.py, cnn_rul.py, autoencoder_anomaly.py
-│   ├── export_lstm_onnx.py, quantize_lstm.py, quantize_and_benchmark.py
-│   ├── edge_deployment_validation.py
-│   ├── predict.py                     # unified fleet-wide alert pipeline
-│   ├── predict_train_fleet.py, evaluate_test.py, analyze_test_by_rul_band.py
-│   ├── explain_shap.py                # SHAP feature attribution
-│   ├── validate_data.py, explore_data.py
-│   └── api.py                         # inference API
-├── models/                            # trained weights, ONNX exports, metrics
-├── dashboard/
-│   ├── dashboard.html                 # interactive monitor (standalone)
-│   └── stream_data.json               # simulated stream (generated)
-├── tests/
-└── README.md
+scripts/            All training, evaluation, serving, and analysis code
+models/             Trained model artifacts + evaluation/comparison CSVs
+data/cmapss/        Processed CMAPSS data + prebuilt sequence arrays
+dashboard/          Live monitoring dashboards (HTML, no build step)
+Dockerfile          Container definition for the FastAPI service
+.github/workflows/  CI: pytest + Docker build on every push
 ```
 
----
+## Running Locally
 
-## 7. How to talk about this in an interview
+```bash
+python -m venv venv
+source venv/bin/activate      # or venv\Scripts\Activate.ps1 on Windows
+pip install -r requirements.txt
+uvicorn scripts.api_server:app --reload --port 8000
+```
 
-- *"Why predictive maintenance?"* → cuts downtime cost vs. reactive/
-  scheduled maintenance.
-- *"Why edge AI specifically?"* → low latency, works offline, avoids
-  streaming raw sensor data continuously to the cloud.
-- *"How did you handle class imbalance?"* → SMOTE on the training set
-  only; then swept the decision threshold from 0.1–0.9 and quantified
-  exactly how many failures vs. false alarms each choice produces, rather
-  than just eyeballing a default — recommended 0.3 over 0.5 because it
-  catches 7 more real failures at a cost of 44 extra inspections.
-- *"How did you choose between models?"* → compared XGBoost, LSTM, and
-  CNN on RMSE and CMAPSS score on a genuinely held-out engine split (no
-  leakage — verified with a dedicated test), picked the LSTM, then
-  measured — not assumed — that ONNX export preserved accuracy exactly
-  while cutting latency ~6x.
-- *"How did you validate the fleet-alert logic wasn't just noise?"* → ran
-  a full simulated machine lifecycle and checked that alerts cluster near
-  true end-of-life rather than firing at random — quantified, not just
-  visually inspected.
-- *"What would you do with real deployment?"* → test on actual
-  constrained hardware (Raspberry Pi/ESP32) instead of the single-thread
-  proxy used here, add drift monitoring, and build a live ingestion layer
-  behind the dashboard instead of a replayed simulation.
+Then open `dashboard/rul_monitor.html` in a browser with API base set to
+`http://localhost:8000`, or visit `http://localhost:8000/docs` for the
+interactive Swagger UI.
 
-## 8. Resume bullet points (copy/adapt)
+## Tech Stack
 
-- Built an end-to-end predictive maintenance system spanning binary
-  failure classification and multi-model Remaining Useful Life (RUL)
-  regression on NASA CMAPSS turbofan degradation data.
-- Designed and benchmarked an edge-deployable classifier (ONNX Runtime)
-  against a cloud-scale RandomForest, achieving a **~1,300x size
-  reduction** with only a ~5-point recall trade-off.
-- Combined an unsupervised autoencoder anomaly detector with an LSTM RUL
-  regressor into a unified fleet-alert pipeline, validated end-to-end
-  against 100 held-out engines.
-- Quantified the RUL model's decision threshold and quantization
-  trade-offs directly (precision/recall sweep, fp32 vs. int8 ONNX
-  benchmarks) rather than assuming defaults, cutting model size 3.4x for
-  a 0.05 RMSE cost.
-- Built an interactive monitoring dashboard visualizing live sensor
-  streams, model confidence, and failure alerts across a simulated
-  machine lifecycle, and validated alert timing against ground-truth
-  degradation curves.
+Python, PyTorch, XGBoost, scikit-learn, Optuna, SHAP, ONNX Runtime, MLflow,
+FastAPI, Docker, GitHub Actions, Render.
