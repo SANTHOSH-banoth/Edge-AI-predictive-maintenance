@@ -83,14 +83,23 @@ def missingness_robustness_curve(
     X: np.ndarray,
     y_true: np.ndarray,
     missing_fractions: list[float] | None = None,
-    impute_value: float = 0.0,
+    impute_strategy: str = "zero",
     seed: int = 42,
 ) -> pd.DataFrame:
     """
     Randomly mask an increasing fraction of feature values (per-cell,
-    not per-row) and impute with `impute_value` (defaults to 0, i.e.
-    "sensor stopped reporting"). Measures RMSE and prediction-failure
-    rate (NaN/inf outputs) as missingness increases.
+    not per-row) and impute using the chosen strategy. Measures RMSE and
+    prediction-failure rate (NaN/inf outputs) as missingness increases.
+
+    impute_strategy:
+      "zero"   -> impute with 0.0 (mimics "sensor stopped reporting",
+                  but 0 can be far outside a feature's normal range,
+                  which may itself confuse the model)
+      "median" -> impute each masked cell with that FEATURE's median
+                  (computed from the clean X passed in). More realistic
+                  for a real deployment, where a monitoring system would
+                  hold the last-known-good reading or a rolling median
+                  rather than report a hard zero.
 
     missing_fractions: e.g. [0, 0.01, 0.05, 0.1, 0.2, 0.4]
     """
@@ -101,11 +110,20 @@ def missingness_robustness_curve(
     X = np.asarray(X, dtype=float)
     baseline_rmse = None
 
+    if impute_strategy == "median":
+        fill_values = np.median(X, axis=0)  # per-feature, shape (n_features,)
+    elif impute_strategy == "zero":
+        fill_values = np.zeros(X.shape[1])
+    else:
+        raise ValueError(f"Unknown impute_strategy '{impute_strategy}', use 'zero' or 'median'")
+
     rows = []
     for frac in missing_fractions:
         mask = rng.random(X.shape) < frac
         X_missing = X.copy()
-        X_missing[mask] = impute_value
+        # broadcast per-feature fill values into the masked cells
+        fill_grid = np.broadcast_to(fill_values, X.shape)
+        X_missing[mask] = fill_grid[mask]
         y_pred = predict_fn(X_missing)
         rmse = _rmse(y_true, y_pred)
         failure_rate = float(np.mean(~np.isfinite(y_pred))) if y_pred is not None else 1.0
@@ -113,6 +131,7 @@ def missingness_robustness_curve(
             baseline_rmse = rmse
         rows.append(
             {
+                "impute_strategy": impute_strategy,
                 "missing_fraction": frac,
                 "rmse": round(rmse, 3),
                 "rmse_increase_pct": round(
@@ -124,6 +143,21 @@ def missingness_robustness_curve(
             }
         )
     return pd.DataFrame(rows)
+
+
+def compare_imputation_strategies(
+    predict_fn: Callable[[np.ndarray], np.ndarray],
+    X: np.ndarray,
+    y_true: np.ndarray,
+    missing_fractions: list[float] | None = None,
+) -> pd.DataFrame:
+    """Runs both zero- and median-imputation and returns them side by side,
+    so you can see directly whether a smarter imputation choice closes
+    the gap found in Week 7 (zero-imputation hurting more than proportional
+    sensor noise would)."""
+    zero_df = missingness_robustness_curve(predict_fn, X, y_true, missing_fractions, "zero")
+    median_df = missingness_robustness_curve(predict_fn, X, y_true, missing_fractions, "median")
+    return pd.concat([zero_df, median_df], ignore_index=True)
 
 
 if __name__ == "__main__":
@@ -139,4 +173,4 @@ if __name__ == "__main__":
 
     print(noise_robustness_curve(toy_predict, X, y))
     print()
-    print(missingness_robustness_curve(toy_predict, X, y))
+    print(compare_imputation_strategies(toy_predict, X, y).to_string(index=False))

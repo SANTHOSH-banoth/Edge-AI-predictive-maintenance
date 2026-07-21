@@ -2,10 +2,8 @@
 run_week7_analysis.py
 ----------------------
 Week 7 deliverable: runs drift monitoring, per-RUL-bucket error analysis,
-and adversarial robustness testing against the REAL trained XGBoost model
-and REAL CMAPSS test set (reusing evaluate_test.py's loading/feature-
-engineering logic directly, so there's no drift between how the model
-was evaluated in Week 4 and how it's stress-tested here).
+and adversarial robustness testing (including zero vs. median imputation
+comparison) against the REAL trained XGBoost model and REAL CMAPSS test set.
 
 Run:
     python scripts/run_week7_analysis.py
@@ -30,7 +28,7 @@ from evaluate_test import (
 )
 from drift_monitor import simulate_calibration_decay, compute_drift_report
 from error_analysis import regression_error_by_rul_bucket
-from robustness_test import noise_robustness_curve, missingness_robustness_curve
+from robustness_test import noise_robustness_curve, compare_imputation_strategies
 
 TRAIN_DATA_PATH = Path("data/cmapss/processed/train_FD001.csv")
 
@@ -96,9 +94,9 @@ def main():
     print(noise_report.to_string(index=False))
 
     print("\n" + "=" * 60)
-    print("3b. MISSING-DATA ROBUSTNESS")
+    print("3b. MISSING-DATA ROBUSTNESS -- zero vs. median imputation")
     print("=" * 60)
-    missing_report = missingness_robustness_curve(predict_fn, X_test_arr, y_test)
+    missing_report = compare_imputation_strategies(predict_fn, X_test_arr, y_test)
     print(missing_report.to_string(index=False))
 
     out_dir = Path("models")
