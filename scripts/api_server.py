@@ -57,6 +57,7 @@ import joblib
 import numpy as np
 import onnxruntime as ort
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Literal
 
@@ -73,6 +74,12 @@ app = FastAPI(
                  "and a PyTorch autoencoder), plus a failure-risk classifier with "
                  "edge/cloud model-selector logic (AI4I dataset).",
     version="1.1.0",
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Loaded once at startup, reused across requests -- loading an ONNX session
