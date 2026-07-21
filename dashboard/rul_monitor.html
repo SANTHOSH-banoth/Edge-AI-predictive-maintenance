@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EDGE-01 // RUL MONITOR</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #080b10;
+    --bg-panel: #10151d;
+    --bg-panel-raised: #151b25;
+    --chrome: #263140;
+    --chrome-bright: #3a4a5e;
+    --text-primary: #dbe4ee;
+    --text-dim: #6b7a8d;
+    --text-faint: #3f4c5c;
+    --healthy: #39d98a;
+    --healthy-dim: #1c6b46;
+    --watch: #e8a83d;
+    --alert: #ef5b5b;
+    --alert-dim: #5c2529;
+    --cyan: #4fc3f7;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg-deep);
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(79,195,247,0.05), transparent 40%),
+      radial-gradient(circle at 85% 100%, rgba(57,217,138,0.04), transparent 40%);
+    color: var(--text-primary);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  .header {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-bottom: 1px solid var(--chrome); padding-bottom: 16px; margin-bottom: 20px;
+  }
+  .header-left .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+    color: var(--text-dim); text-transform: uppercase;
+  }
+  .header-left h1 { font-family: var(--mono); font-size: 26px; font-weight: 600; letter-spacing: 0.02em; margin-top: 4px; }
+  .header-left h1 .accent { color: var(--cyan); }
+  .header-right { text-align: right; font-family: var(--mono); font-size: 11px; color: var(--text-dim); letter-spacing: 0.08em; }
+  .conn-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    padding: 4px 9px; border-radius: 3px; margin-top: 6px;
+    background: var(--bg-panel-raised); border: 1px solid var(--chrome);
+  }
+  .conn-pill .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .conn-live { color: var(--healthy); } .conn-live .dot { background: var(--healthy); box-shadow: 0 0 6px var(--healthy); animation: pulse 1.6s infinite; }
+  .conn-off { color: var(--alert); } .conn-off .dot { background: var(--alert); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .controls {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    background: var(--bg-panel); border: 1px solid var(--chrome); border-radius: 6px;
+    padding: 12px 16px; margin-bottom: 18px; font-family: var(--mono); font-size: 12px;
+  }
+  .controls label { color: var(--text-dim); letter-spacing: 0.05em; }
+  .controls input, .controls select {
+    background: var(--bg-panel-raised); border: 1px solid var(--chrome); color: var(--text-primary);
+    font-family: var(--mono); font-size: 12px; padding: 6px 9px; border-radius: 4px; outline: none;
+  }
+  .controls input:focus, .controls select:focus { border-color: var(--cyan); }
+  #apiBase { width: 260px; }
+  .btn {
+    background: var(--bg-panel-raised); border: 1px solid var(--chrome-bright); color: var(--text-primary);
+    font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 6px 14px;
+    border-radius: 4px; cursor: pointer; letter-spacing: 0.04em;
+  }
+  .btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  .btn.active { background: var(--cyan); color: var(--bg-deep); border-color: var(--cyan); }
+  .spacer { flex: 1; }
+
+  .grid3 { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .panel { background: var(--bg-panel); border: 1px solid var(--chrome); border-radius: 6px; padding: 18px 20px; }
+  .panel-title { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 14px; }
+
+  /* ---- Gauge ---- */
+  .gauge-wrap { display: flex; flex-direction: column; align-items: center; }
+  #gaugeSvg { width: 100%; max-width: 320px; height: auto; }
+  .gauge-readout { text-align: center; margin-top: -34px; }
+  .gauge-readout .num { font-family: var(--mono); font-size: 40px; font-weight: 700; }
+  .gauge-readout .unit { font-family: var(--mono); font-size: 12px; color: var(--text-dim); letter-spacing: 0.08em; }
+  .gauge-zones { display: flex; justify-content: space-between; width: 100%; max-width: 320px; margin-top: 4px; font-family: var(--mono); font-size: 9.5px; color: var(--text-faint); letter-spacing: 0.04em; }
+
+  /* ---- Anomaly / alert panel ---- */
+  .flag-box { display: flex; flex-direction: column; gap: 14px; height: 100%; }
+  .flag-pill {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-family: var(--mono); font-size: 16px; font-weight: 700; letter-spacing: 0.05em;
+    padding: 14px; border-radius: 6px; border: 1px solid var(--chrome);
+  }
+  .flag-pill .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .flag-normal { color: var(--healthy); background: rgba(57,217,138,0.06); border-color: var(--healthy-dim); }
+  .flag-normal .dot { background: var(--healthy); }
+  .flag-anom { color: var(--alert); background: rgba(239,91,91,0.08); border-color: var(--alert-dim); }
+  .flag-anom .dot { background: var(--alert); animation: pulse 1.2s infinite; }
+  .kv-row { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 12px; padding: 6px 0; border-bottom: 1px solid var(--chrome); }
+  .kv-row:last-child { border-bottom: none; }
+  .kv-row .k { color: var(--text-dim); }
+  .kv-row .v { font-weight: 600; }
+  .alert-URGENT { color: var(--alert); }
+  .alert-WARNING { color: var(--watch); }
+  .alert-WATCH { color: var(--watch); }
+  .alert-HEALTHY { color: var(--healthy); }
+  .reason-text { font-family: var(--mono); font-size: 11px; color: var(--text-dim); line-height: 1.5; margin-top: 4px; }
+
+  /* ---- Cost panel ---- */
+  .cost-row { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--mono); font-size: 12px; padding: 5px 0; }
+  .cost-row .k { color: var(--text-dim); }
+  .cost-row .v { font-weight: 700; }
+  .cost-big { text-align: center; margin: 8px 0 14px; }
+  .cost-big .num { font-family: var(--mono); font-size: 28px; font-weight: 700; color: var(--healthy); }
+  .cost-big .label { font-family: var(--mono); font-size: 10px; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; }
+  .cost-note { font-family: var(--mono); font-size: 9.5px; color: var(--text-faint); line-height: 1.5; margin-top: 10px; border-top: 1px solid var(--chrome); padding-top: 10px; }
+
+  .fleet-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: 1px; background: var(--chrome); border: 1px solid var(--chrome); border-radius: 6px; overflow: hidden; margin-bottom: 16px; }
+  .fleet-cell { background: var(--bg-panel); padding: 12px 16px; }
+  .fleet-cell .label { font-family: var(--mono); font-size: 9.5px; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 5px; }
+  .fleet-cell .value { font-family: var(--mono); font-size: 18px; font-weight: 600; }
+
+  .footnote { font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); line-height: 1.6; border-top: 1px solid var(--chrome); padding-top: 12px; }
+  .footnote b { color: var(--text-dim); }
+
+  .error-box {
+    font-family: var(--mono); font-size: 12px; color: var(--watch);
+    background: var(--bg-panel); border: 1px solid var(--chrome); border-radius: 6px;
+    padding: 16px 18px; margin-bottom: 16px; line-height: 1.7;
+  }
+  .error-box code { display: block; background: var(--bg-panel-raised); border: 1px solid var(--chrome); padding: 8px 12px; border-radius: 4px; margin-top: 8px; color: var(--cyan); }
+
+  @media (max-width: 860px) { .grid3 { grid-template-columns: 1fr; } .fleet-strip { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="eyebrow">Edge AI &middot; Predictive Maintenance</div>
+      <h1>EDGE&#8209;01 <span class="accent">// RUL MONITOR</span></h1>
+    </div>
+    <div class="header-right">
+      LSTM (ONNX) + Autoencoder &middot; live FastAPI backend<br>
+      <span class="conn-pill conn-off" id="connPill"><span class="dot"></span>OFFLINE</span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <label for="apiBase">API base</label>
+    <input id="apiBase" type="text" value="http://localhost:8000" spellcheck="false">
+    <label for="engineSel">Engine</label>
+    <select id="engineSel"></select>
+    <button class="btn" id="fetchBtn">Fetch once</button>
+    <button class="btn" id="playBtn">&#9654; Auto-cycle</button>
+    <div class="spacer"></div>
+    <label for="pollMs">Poll every</label>
+    <select id="pollMs">
+      <option value="800">0.8s</option>
+      <option value="1500" selected>1.5s</option>
+      <option value="3000">3s</option>
+    </select>
+  </div>
+
+  <div id="errorBox"></div>
+
+  <div class="fleet-strip">
+    <div class="fleet-cell"><div class="label">Engines viewed</div><div class="value" id="fleetViewed">0</div></div>
+    <div class="fleet-cell"><div class="label">Alerts raised</div><div class="value" id="fleetAlerts">0</div></div>
+    <div class="fleet-cell"><div class="label">Est. session savings</div><div class="value" id="fleetSavings" style="color:var(--healthy)">$0</div></div>
+    <div class="fleet-cell"><div class="label">Last updated</div><div class="value" id="fleetUpdated" style="font-size:13px;color:var(--text-dim)">&mdash;</div></div>
+  </div>
+
+  <div class="grid3">
+    <div class="panel">
+      <div class="panel-title">RUL Countdown</div>
+      <div class="gauge-wrap">
+        <svg id="gaugeSvg" viewBox="0 0 320 190"></svg>
+        <div class="gauge-readout">
+          <div class="num" id="rulNum">&mdash;</div>
+          <div class="unit">CYCLES REMAINING</div>
+        </div>
+        <div class="gauge-zones"><span>0 (critical)</span><span>60+</span><span>130 (healthy)</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Anomaly &amp; Alert Status</div>
+      <div class="flag-box">
+        <div class="flag-pill flag-normal" id="flagPill"><span class="dot"></span><span id="flagText">&mdash;</span></div>
+        <div>
+          <div class="kv-row"><span class="k">Alert level</span><span class="v" id="alertLevel">&mdash;</span></div>
+          <div class="kv-row"><span class="k">Reconstruction error</span><span class="v" id="reconErr">&mdash;</span></div>
+          <div class="kv-row"><span class="k">Anomaly threshold</span><span class="v" id="anomThresh">&mdash;</span></div>
+        </div>
+        <div class="reason-text" id="reasonText"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Maintenance Cost Estimator</div>
+      <div class="cost-big">
+        <div class="num" id="costSavings">$&mdash;</div>
+        <div class="label">est. savings vs. reactive baseline</div>
+      </div>
+      <div class="cost-row"><span class="k">Recommended action</span><span class="v" id="costAction">&mdash;</span></div>
+      <div class="cost-row"><span class="k">Est. cost if acted on now</span><span class="v" id="costModel">&mdash;</span></div>
+      <div class="cost-row"><span class="k">Reactive (run-to-failure) cost</span><span class="v" id="costReactive">&mdash;</span></div>
+      <div class="cost-note">
+        Estimated from the predicted RUL only &mdash; a live system doesn't know
+        true remaining life in advance. Cost figures ($50k unplanned failure,
+        $5k planned maintenance, $40/cycle early-maintenance waste) are
+        illustrative placeholders, not sourced figures &mdash; see
+        <b>maintenance_decision.py</b>.
+      </div>
+    </div>
+  </div>
+
+  <div class="footnote">
+    <b>Reading this:</b> select an engine (1&ndash;100, the real held-out CMAPSS test
+    engines) or hit Auto&#8209;cycle to poll <code style="color:var(--cyan)">/demo/engine/{id}</code>
+    on your FastAPI backend once per interval, the way a live sensor feed would arrive.
+    The gauge, anomaly flag, and cost estimate all come directly from that endpoint's
+    response &mdash; nothing here is precomputed or faked client-side except the cost
+    arithmetic itself.
+  </div>
+</div>
+
+<script>
+const state = { timer: null, playing: false, viewed: 0, alerts: 0, sessionSavings: 0 };
+
+const THRESHOLDS = { critical: 15, warning: 30, watch: 60 };
+const COSTS = { unplannedFailure: 50000, plannedMaintenance: 5000, wastePerCycle: 40 };
+
+const engineSel = document.getElementById('engineSel');
+for (let i = 1; i <= 100; i++) {
+  const opt = document.createElement('option');
+  opt.value = i; opt.textContent = 'Engine ' + i;
+  engineSel.appendChild(opt);
+}
+engineSel.value = 1;
+
+function setConn(live) {
+  const pill = document.getElementById('connPill');
+  pill.className = 'conn-pill ' + (live ? 'conn-live' : 'conn-off');
+  pill.innerHTML = `<span class="dot"></span>${live ? 'LIVE' : 'OFFLINE'}`;
+}
+
+function showError(msg) {
+  document.getElementById('errorBox').innerHTML = `
+    <div class="error-box">
+      COULD NOT REACH API<br>
+      ${msg}<br>
+      Make sure your FastAPI server is running and CORS is enabled:
+      <code>uvicorn scripts.api_server:app --reload --port 8000</code>
+      If calling from a different origin/port, add CORSMiddleware in api_server.py
+      (allow_origins=["*"]) so the browser will accept the response.
+    </div>`;
+}
+function clearError() { document.getElementById('errorBox').innerHTML = ''; }
+
+// ---- Gauge rendering (semicircle, 0-130 cycles, red->amber->green) ----
+function polar(cx, cy, r, angleDeg) {
+  const rad = angleDeg * Math.PI / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+function arcPath(cx, cy, r, a1, a2) {
+  const p1 = polar(cx, cy, r, a1), p2 = polar(cx, cy, r, a2);
+  const large = (a2 - a1) > 180 ? 1 : 0;
+  return `M ${p1.x} ${p1.y} A ${r} ${r} 0 ${large} 1 ${p2.x} ${p2.y}`;
+}
+const GAUGE_MAX = 130;
+function renderGaugeStatic() {
+  const cx = 160, cy = 160, rTrack = 130;
+  const zones = [
+    { from: 0, to: 15, color: 'var(--alert)' },
+    { from: 15, to: 60, color: 'var(--watch)' },
+    { from: 60, to: GAUGE_MAX, color: 'var(--healthy)' },
+  ];
+  const toAngle = v => 180 + (v / GAUGE_MAX) * 180;
+  let zoneArcs = zones.map(z =>
+    `<path d="${arcPath(cx, cy, rTrack, toAngle(z.from), toAngle(z.to))}" stroke="${z.color}" stroke-width="14" fill="none" stroke-linecap="butt" opacity="0.85"/>`
+  ).join('');
+  document.getElementById('gaugeSvg').innerHTML = `
+    ${zoneArcs}
+    <line id="needle" x1="${cx}" y1="${cy}" x2="${cx - rTrack + 20}" y2="${cy}" stroke="var(--text-primary)" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="7" fill="var(--text-primary)"/>
+  `;
+}
+function updateGauge(rul) {
+  const cx = 160, cy = 160, len = 110;
+  const clamped = Math.max(0, Math.min(GAUGE_MAX, rul));
+  const angle = 180 + (clamped / GAUGE_MAX) * 180;
+  const tip = polar(cx, cy, len, angle);
+  const needle = document.getElementById('needle');
+  if (needle) { needle.setAttribute('x2', tip.x); needle.setAttribute('y2', tip.y); }
+  document.getElementById('rulNum').textContent = rul.toFixed(1);
+  document.getElementById('rulNum').style.color =
+    rul <= THRESHOLDS.critical ? 'var(--alert)' : rul <= THRESHOLDS.watch ? 'var(--watch)' : 'var(--healthy)';
+}
+renderGaugeStatic();
+
+// ---- Cost estimator (mirrors maintenance_decision.py thresholds/logic) ----
+function recommendAction(rul) {
+  if (rul <= THRESHOLDS.critical) return 'IMMEDIATE';
+  if (rul <= THRESHOLDS.warning) return 'SOON';
+  if (rul <= THRESHOLDS.watch) return 'MONITOR';
+  return 'OK';
+}
+function estimateCost(rul) {
+  const action = recommendAction(rul);
+  if (action === 'OK') {
+    return { action, modelCost: 0, reactiveCost: 0, savings: 0 };
+  }
+  // Treat any acted-on case as a planned-maintenance success (we don't know
+  // true RUL in a live setting, so this assumes the model's call was warranted).
+  const wastedCycles = Math.max(rul - THRESHOLDS.warning, 0);
+  const modelCost = action === 'IMMEDIATE'
+    ? COSTS.plannedMaintenance
+    : COSTS.plannedMaintenance + wastedCycles * COSTS.wastePerCycle;
+  const reactiveCost = COSTS.unplannedFailure;
+  return { action, modelCost, reactiveCost, savings: reactiveCost - modelCost };
+}
+
+function fmtUsd(n) { return '$' + Math.round(n).toLocaleString(); }
+
+function paint(result) {
+  updateGauge(result.predicted_rul);
+
+  const flagPill = document.getElementById('flagPill');
+  const flagText = document.getElementById('flagText');
+  if (result.is_anomaly) {
+    flagPill.className = 'flag-pill flag-anom'; flagText.textContent = 'ANOMALY DETECTED';
+  } else {
+    flagPill.className = 'flag-pill flag-normal'; flagText.textContent = 'NORMAL PATTERN';
+  }
+  const alertEl = document.getElementById('alertLevel');
+  alertEl.textContent = result.alert_level;
+  alertEl.className = 'v alert-' + result.alert_level;
+  document.getElementById('reconErr').textContent = result.reconstruction_error.toFixed(5);
+  document.getElementById('reasonText').textContent = result.reason;
+
+  const cost = estimateCost(result.predicted_rul);
+  document.getElementById('costAction').textContent = cost.action;
+  document.getElementById('costModel').textContent = fmtUsd(cost.modelCost);
+  document.getElementById('costReactive').textContent = fmtUsd(cost.reactiveCost);
+  document.getElementById('costSavings').textContent = fmtUsd(cost.savings);
+
+  state.viewed += 1;
+  if (result.alert_level !== 'HEALTHY') state.alerts += 1;
+  state.sessionSavings += cost.savings;
+  document.getElementById('fleetViewed').textContent = state.viewed;
+  document.getElementById('fleetAlerts').textContent = state.alerts;
+  document.getElementById('fleetSavings').textContent = fmtUsd(state.sessionSavings);
+  document.getElementById('fleetUpdated').textContent = new Date().toLocaleTimeString();
+}
+
+async function fetchOnce() {
+  const base = document.getElementById('apiBase').value.replace(/\/$/, '');
+  const id = engineSel.value;
+  try {
+    const res = await fetch(`${base}/demo/engine/${id}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    setConn(true); clearError();
+    paint(data);
+  } catch (e) {
+    setConn(false);
+    showError(e.message || String(e));
+  }
+}
+
+document.getElementById('fetchBtn').addEventListener('click', fetchOnce);
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  const btn = document.getElementById('playBtn');
+  state.playing = !state.playing;
+  if (state.playing) {
+    btn.textContent = '&#10074;&#10074; Pause'; btn.innerHTML = '&#10074;&#10074; Pause'; btn.classList.add('active');
+    const ms = parseInt(document.getElementById('pollMs').value, 10);
+    fetchOnce();
+    state.timer = setInterval(() => {
+      let next = parseInt(engineSel.value, 10) + 1;
+      if (next > 100) next = 1;
+      engineSel.value = next;
+      fetchOnce();
+    }, ms);
+  } else {
+    btn.innerHTML = '&#9654; Auto-cycle'; btn.classList.remove('active');
+    clearInterval(state.timer);
+  }
+});
+
+document.getElementById('pollMs').addEventListener('change', () => {
+  if (state.playing) {
+    clearInterval(state.timer);
+    const ms = parseInt(document.getElementById('pollMs').value, 10);
+    state.timer = setInterval(() => {
+      let next = parseInt(engineSel.value, 10) + 1;
+      if (next > 100) next = 1;
+      engineSel.value = next;
+      fetchOnce();
+    }, ms);
+  }
+});
+
+engineSel.addEventListener('change', fetchOnce);
+
+// Initial attempt on load
+fetchOnce();
+</script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+true_rul,predicted_rul,action,outcome,model_cost,reactive_baseline_cost,savings
+112,114.42307,OK: no action needed,correct_no_action,0,0,0
+98,119.75808,OK: no action needed,correct_no_action,0,0,0
+69,50.34714,MONITOR: increase inspection frequency,planned_maintenance_early,6560,50000,43440
+82,78.138916,OK: no action needed,correct_no_action,0,0,0
+91,92.70375,OK: no action needed,correct_no_action,0,0,0
+93,104.633575,OK: no action needed,correct_no_action,0,0,0
+91,104.75453,OK: no action needed,correct_no_action,0,0,0
+95,85.56087,OK: no action needed,correct_no_action,0,0,0
+111,116.61979,OK: no action needed,correct_no_action,0,0,0
+96,83.59498,OK: no action needed,correct_no_action,0,0,0
+97,86.33926,OK: no action needed,correct_no_action,0,0,0
+124,98.869896,OK: no action needed,correct_no_action,0,0,0
+95,78.73056,OK: no action needed,correct_no_action,0,0,0
+107,113.186325,OK: no action needed,correct_no_action,0,0,0
+83,105.83449,OK: no action needed,correct_no_action,0,0,0
+84,101.6808,OK: no action needed,correct_no_action,0,0,0
+50,51.913437,MONITOR: increase inspection frequency,planned_maintenance_early,5800,50000,44200
+28,32.08316,MONITOR: increase inspection frequency,planned_maintenance_success,5000,50000,45000
+87,94.9293,OK: no action needed,correct_no_action,0,0,0
+16,15.805092,SOON: schedule within next maintenance window,planned_maintenance_success,5000,50000,45000
+57,74.54658,OK: no action needed,correct_no_action,0,0,0
+111,120.72613,OK: no action needed,correct_no_action,0,0,0
+113,121.66584,OK: no action needed,correct_no_action,0,0,0
+20,20.112953,SOON: schedule within next maintenance window,planned_maintenance_success,5000,50000,45000
+125,110.429665,OK: no action needed,correct_no_action,0,0,0
+119,111.71018,OK: no action needed,correct_no_action,0,0,0
+66,86.846176,OK: no action needed,correct_no_action,0,0,0
+97,102.97355,OK: no action needed,correct_no_action,0,0,0
+90,94.84253,OK: no action needed,correct_no_action,0,0,0
+115,102.29858,OK: no action needed,correct_no_action,0,0,0
+8,11.8062105,IMMEDIATE: schedule maintenance now,planned_maintenance_success,5000,50000,45000
+48,49.922264,MONITOR: increase inspection frequency,planned_maintenance_early,5720,50000,44280
+106,111.87392,OK: no action needed,correct_no_action,0,0,0
+7,7.022297,IMMEDIATE: schedule maintenance now,planned_maintenance_success,5000,50000,45000
+11,12.024216,IMMEDIATE: schedule maintenance now,planned_maintenance_success,5000,50000,45000
+19,24.374207,SOON: schedule within next maintenance window,planned_maintenance_success,5000,50000,45000
+21,24.030115,SOON: schedule within next maintenance window,planned_maintenance_success,5000,50000,45000
+50,53.009052,MONITOR: increase inspection frequency,planned_maintenance_early,5800,50000,44200
+125,122.15984,OK: no action needed,correct_no_action,0,0,0
+28,34.38516,MONITOR: increase inspection frequency,planned_maintenance_success,5000,50000,45000
+18,19.353905,SOON: schedule within next maintenance window,planned_maintenance_success,5000,50000,45000
+10,9.998779,IMMEDIATE: schedule maintenance now,planned_maintenance_success,5000,50000,45000
+59,57.266335,MONITOR: increase inspection frequency,planned_maintenance_early,6160,50000,43840
+109,102.83518,OK: no action needed,correct_no_action,0,0,0
+114,78.26605,OK: no action needed,correct_no_action,0,0,0
+47,44.41039,MONITOR: increase inspection frequency,planned_maintenance_early,5680,50000,44320
+125,103.64319,OK: no action needed,correct_no_action,0,0,0
+92,101.694534,OK: no action needed,correct_no_action,0,0,0
+21,22.111406,SOON: schedule within next maintenance window,planned_maintenance_success,5000,50000,45000
+79,84.33399,OK: no action needed,correct_no_action,0,0,0
+114,99.4968,OK: no action needed,correct_no_action,0,0,0
+29,29.759306,SOON: schedule within next maintenance window,planned_maintenance_success,5000,50000,45000
+26,28.792467,SOON: schedule within next maintenance window,planned_maintenance_success,5000,50000,45000
+97,120.86884,OK: no action needed,correct_no_action,0,0,0
+125,110.70251,OK: no action needed,correct_no_action,0,0,0
+15,18.122324,SOON: schedule within next maintenance window,planned_maintenance_success,5000,50000,45000
+103,103.8547,OK: no action needed,correct_no_action,0,0,0
+37,44.26857,MONITOR: increase inspection frequency,planned_maintenance_early,5280,50000,44720
+114,112.488075,OK: no action needed,correct_no_action,0,0,0
+100,107.61812,OK: no action needed,correct_no_action,0,0,0
+21,20.880219,SOON: schedule within next maintenance window,planned_maintenance_success,5000,50000,45000
+54,39.858044,MONITOR: increase inspection frequency,planned_maintenance_early,5960,50000,44040
+72,77.40894,OK: no action needed,correct_no_action,0,0,0
+28,26.155123,SOON: schedule within next maintenance window,planned_maintenance_success,5000,50000,45000
+125,120.765625,OK: no action needed,correct_no_action,0,0,0
+14,19.245525,SOON: schedule within next maintenance window,planned_maintenance_success,5000,50000,45000
+77,115.525955,OK: no action needed,correct_no_action,0,0,0
+8,11.362056,IMMEDIATE: schedule maintenance now,planned_maintenance_success,5000,50000,45000
+121,116.93225,OK: no action needed,correct_no_action,0,0,0
+94,85.398155,OK: no action needed,correct_no_action,0,0,0
+118,107.39768,OK: no action needed,correct_no_action,0,0,0
+50,60.22167,OK: no action needed,correct_no_action,0,0,0
+125,109.43609,OK: no action needed,correct_no_action,0,0,0
+125,98.38874,OK: no action needed,correct_no_action,0,0,0
+113,106.64538,OK: no action needed,correct_no_action,0,0,0
+10,8.923095,IMMEDIATE: schedule maintenance now,planned_maintenance_success,5000,50000,45000
+34,29.506952,SOON: schedule within next maintenance window,planned_maintenance_early,5160,50000,44840
+107,125.16755,OK: no action needed,correct_no_action,0,0,0
+63,99.544785,OK: no action needed,correct_no_action,0,0,0
+90,91.29917,OK: no action needed,correct_no_action,0,0,0
+8,8.547202,IMMEDIATE: schedule maintenance now,planned_maintenance_success,5000,50000,45000
+9,11.395343,IMMEDIATE: schedule maintenance now,planned_maintenance_success,5000,50000,45000
+125,120.67918,OK: no action needed,correct_no_action,0,0,0
+58,73.46472,OK: no action needed,correct_no_action,0,0,0
+118,120.62813,OK: no action needed,correct_no_action,0,0,0
+89,110.68629,OK: no action needed,correct_no_action,0,0,0
+116,117.77051,OK: no action needed,correct_no_action,0,0,0
+115,112.238686,OK: no action needed,correct_no_action,0,0,0
+125,106.18193,OK: no action needed,correct_no_action,0,0,0
+28,25.22184,SOON: schedule within next maintenance window,planned_maintenance_success,5000,50000,45000
+38,27.886005,SOON: schedule within next maintenance window,planned_maintenance_early,5320,50000,44680
+20,24.144047,SOON: schedule within next maintenance window,planned_maintenance_success,5000,50000,45000
+85,45.28188,MONITOR: increase inspection frequency,planned_maintenance_early,7200,50000,42800
+55,66.22203,OK: no action needed,correct_no_action,0,0,0
+125,102.21787,OK: no action needed,correct_no_action,0,0,0
+125,113.57978,OK: no action needed,correct_no_action,0,0,0
+82,82.997444,OK: no action needed,correct_no_action,0,0,0
+59,66.13177,OK: no action needed,correct_no_action,0,0,0
+117,118.60658,OK: no action needed,correct_no_action,0,0,0
+20,16.679913,SOON: schedule within next maintenance window,planned_maintenance_success,5000,50000,45000

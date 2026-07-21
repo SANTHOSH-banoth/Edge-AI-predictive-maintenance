@@ -1,0 +1,4 @@
+name,rmse,size_kb,latency_ms,cmapss_score
+xgboost_onnx,13.993,744.0,0.028,320.4
+lstm_onnx,12.803,218.3,0.457,267.0
+cnn_onnx,18.063,134.2,0.684,649.7

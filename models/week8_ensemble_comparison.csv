@@ -1,0 +1,7 @@
+method,rmse,type
+lstm,12.803,individual
+ensemble_stacked,12.834,ensemble
+ensemble_weighted_avg,13.126,ensemble
+ensemble_simple_avg,13.38,ensemble
+xgboost,13.993,individual
+cnn,18.063,individual
