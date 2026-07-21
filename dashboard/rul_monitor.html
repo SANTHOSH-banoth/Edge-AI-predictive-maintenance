@@ -365,6 +365,24 @@ function paint(result) {
   document.getElementById('fleetUpdated').textContent = new Date().toLocaleTimeString();
 }
 
+let thresholdFetched = false;
+
+async function fetchThresholdOnce() {
+  const base = document.getElementById('apiBase').value.replace(/\/$/, '');
+  try {
+    const res = await fetch(`${base}/model_info`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const t = data?.rul_anomaly_pipeline?.anomaly_error_threshold;
+    if (typeof t === 'number') {
+      document.getElementById('anomThresh').textContent = t.toFixed(5);
+      thresholdFetched = true;
+    }
+  } catch (e) {
+    // non-fatal -- the main /demo/engine call will still surface connection errors
+  }
+}
+
 async function fetchOnce() {
   const base = document.getElementById('apiBase').value.replace(/\/$/, '');
   const id = engineSel.value;
@@ -374,6 +392,7 @@ async function fetchOnce() {
     const data = await res.json();
     setConn(true); clearError();
     paint(data);
+    if (!thresholdFetched) fetchThresholdOnce();
   } catch (e) {
     setConn(false);
     showError(e.message || String(e));
