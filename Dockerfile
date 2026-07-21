@@ -50,5 +50,4 @@ EXPOSE 8000
 # api_server.py's on_event("startup") handler loads models from the
 # "models" directory using a relative path, so the container's working
 # directory must be /app (set by WORKDIR above) for that to resolve.
-CMD ["uvicorn", "scripts.api_server:app", "--host", "0.0.0.0", "--port", "8000"]
-
+CMD uvicorn scripts.api_server:app --host 0.0.0.0 --port ${PORT:-8000}
